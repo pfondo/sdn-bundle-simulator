@@ -10,6 +10,5 @@ TODO list:
 - [ ] Write a decent README.md.
 - [x] Maven-ize the project.
 - [ ] Parametrize the code (e.g., in a configuration file).
-- [ ] Create CI/CD tests.
 
 TBD
