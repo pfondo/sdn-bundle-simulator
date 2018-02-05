@@ -18,7 +18,7 @@ import utils.DecimalFormatUtils;
  */
 public class Queue {
 	public final static boolean DEBUG = false;
-	public final static boolean PRINT_PACKETS = true;
+	public final static boolean PRINT_PACKETS = false;
 	public final static String PACKETS_PATH = "packets/";
 
 	public double queueSize; // delay in seconds
