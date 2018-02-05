@@ -1,7 +1,9 @@
 # sdn-bundle-simulator
-SDN Bundle Network Simulator
 
 [![Build Status](https://travis-ci.org/pfondo/sdn-bundle-simulator.svg?branch=master)](https://travis-ci.org/pfondo/sdn-bundle-simulator)
+
+SDN Bundle Network Simulator
+
 
 TODO list:
 - [x] Upload source code.
