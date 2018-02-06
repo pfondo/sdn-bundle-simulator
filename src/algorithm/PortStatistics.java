@@ -28,7 +28,8 @@ public class PortStatistics {
 	// Experimental
 	private double remainingOccupation;
 
-	public PortStatistics(PortNumber portNumber, double time, double portBandwidth, double queueSize) {
+	public PortStatistics(String executionFile, PortNumber portNumber, double time, double portBandwidth,
+			double queueSize) {
 		this.time = time;
 		this.portBandwidth = portBandwidth;
 		this.portNumber = portNumber;
@@ -43,7 +44,7 @@ public class PortStatistics {
 		this.numPackets = 0;
 		this.energyConsumptions = new ArrayList<Double>();
 		if (queueSize != 0) {
-			this.queue = new Queue("port" + portNumber.toLong(), queueSize);
+			this.queue = new Queue(executionFile, "port" + portNumber.toLong(), queueSize);
 		} else {
 			this.queue = null;
 		}
@@ -181,24 +182,24 @@ public class PortStatistics {
 		this.bytesInterval = bytesInterval;
 	}
 
-	public void finishInterval(boolean discardPreviousIntervals) {
+	public void finishInterval(boolean discardPreviousIntervals, double timestamp) {
 		energyConsumptions.add(getEnergyConsumption(true));
 		numPacketsInterval = 0;
 		bytesInterval = 0;
 		numFlowsInterval = 0;
 		if (discardPreviousIntervals) {
-			discardPreviousIntervals();
+			discardPreviousIntervals(timestamp);
 		}
 	}
 
 	/*
 	 * IMPORTANT: This method must be called at the end of finishInterval
 	 */
-	private void discardPreviousIntervals() {
+	private void discardPreviousIntervals(double timestamp) {
 		numPackets = 0;
 		bytes = 0;
 		energyConsumptions.clear();
-		queue.clean();
+		queue.clean(timestamp);
 	}
 
 	public String toStringInterval() {

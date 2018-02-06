@@ -9,6 +9,6 @@ TODO list:
 - [x] Upload source code.
 - [ ] Write a decent README.md.
 - [x] Maven-ize the project.
-- [ ] Parametrize the code (e.g., in a configuration file).
+- [x] Parametrize the code.
 
 TBD

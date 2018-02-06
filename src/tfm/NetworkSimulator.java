@@ -22,13 +22,14 @@ import algorithm.ReallocateFlowsTaskSimulator;
 import auxiliar.PortNumber;
 import auxiliar.Queue;
 import utils.DecimalFormatUtils;
+import utils.FileNameUtils;
 import auxiliar.DeviceId;
 import auxiliar.FlowEntry;
 import auxiliar.Packet;
 
 public class NetworkSimulator {
 
-	private double delay; // seconds
+	private double period; // seconds
 	private double flowRuleTimeout; // seconds
 	private static final boolean DEBUG = false;
 
@@ -38,10 +39,6 @@ public class NetworkSimulator {
 	private BufferedReader br = null;
 	private String line = "";
 	private boolean finished = false;
-
-	// Used to compute the average packet size
-	private long packetSizeSum = 0;
-	private long numPackets = 0;
 
 	// Used to identify each flow
 	private int startBitDstIp = 0;
@@ -62,21 +59,22 @@ public class NetworkSimulator {
 	 * 
 	 * @param algorithmClass
 	 * @param inputFile
-	 * @param delay (seconds)
+	 * @param delay
+	 *            (seconds)
 	 * @param flowRuleTimeout
 	 * @param startBitDstIp
 	 * @param endBitDstIp
 	 * @param printStream
-	 * @param queueSize (seconds)
+	 * @param queueSize
+	 *            (seconds)
 	 * @param fileToAppendFinalResults
 	 * @param iterationsToDiscard
 	 */
 	public NetworkSimulator(Class<? extends ReallocateFlowsTaskSimulator> algorithmClass, String inputFile,
 			double delay, double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream,
 			double queueSize, String fileToAppendFinalResults, int iterationsToDiscard) {
+		this.inputFile = inputFile;
 		iteration = 0;
-		packetSizeSum = 0;
-		numPackets = 0;
 		finished = false;
 		line = "";
 		totalPortStatistics = new HashMap<DeviceId, Map<PortNumber, PortStatistics>>();
@@ -88,15 +86,40 @@ public class NetworkSimulator {
 			return;
 		}
 		this.algorithm = ReallocateFlowsTaskSimulator.newInstance(algorithmClass);
-		this.delay = delay;
+		this.period = delay;
 		this.flowRuleTimeout = flowRuleTimeout;
 		this.startBitDstIp = startBitDstIp;
 		this.endBitDstIp = endBitDstIp;
 		this.printStream = printStream;
 		this.fileToAppendFinalResults = fileToAppendFinalResults;
 		this.queueSize = queueSize;
-		this.inputFile = inputFile;
 		this.iterationsToDiscard = iterationsToDiscard;
+		// Must be called at the end of this constructor
+		this.algorithm.init(this);
+	}
+
+	public NetworkSimulator(Configuration conf) {
+		this.inputFile = conf.inputFile;
+		iteration = 0;
+		finished = false;
+		line = "";
+		totalPortStatistics = new HashMap<DeviceId, Map<PortNumber, PortStatistics>>();
+		br = null;
+		try {
+			br = new BufferedReader(new FileReader(this.inputFile));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			return;
+		}
+		this.algorithm = ReallocateFlowsTaskSimulator.newInstance(conf.algorithm);
+		this.period = conf.period;
+		this.flowRuleTimeout = conf.flowRuleTimeout;
+		this.startBitDstIp = conf.startBitDstIp;
+		this.endBitDstIp = conf.endBitDstIp;
+		this.printStream = conf.printStream;
+		this.fileToAppendFinalResults = null;
+		this.queueSize = conf.queueSize;
+		this.iterationsToDiscard = conf.iterationsToDiscard;
 		// Must be called at the end of this constructor
 		this.algorithm.init(this);
 	}
@@ -119,7 +142,11 @@ public class NetworkSimulator {
 	public void initPortStatistics(DeviceId deviceId, Set<PortNumber> portList, double PORT_BANDWIDTH) {
 		totalPortStatistics.put(deviceId, new HashMap<PortNumber, PortStatistics>());
 		for (PortNumber pn : portList) {
-			totalPortStatistics.get(deviceId).put(pn, new PortStatistics(pn, delay, PORT_BANDWIDTH, queueSize));
+			totalPortStatistics.get(deviceId).put(pn,
+					new PortStatistics(
+							FileNameUtils.generateOutputFileName(algorithm.getClass(), inputFile, period,
+									flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize),
+							pn, period, PORT_BANDWIDTH, queueSize));
 		}
 	}
 
@@ -164,7 +191,7 @@ public class NetworkSimulator {
 			printStream.println(portOccupation.get(pn).toStringInterval());
 			// Reset interval counters since this interval has ended
 			boolean mustDiscard = iteration <= iterationsToDiscard;
-			totalPortStatistics.get(deviceId).get(pn).finishInterval(mustDiscard);
+			totalPortStatistics.get(deviceId).get(pn).finishInterval(mustDiscard, iteration * period);
 		}
 		averageConsumption /= portList.size();
 		printStream.println("Average consumption: "
@@ -182,7 +209,7 @@ public class NetworkSimulator {
 		for (PortNumber pn : portList) {
 			PortStatistics ps = totalPortStatistics.get(deviceId).get(pn);
 			// Set current time of the simulation
-			ps.setTime(getCurrentTime() - (delay * iterationsToDiscard));
+			ps.setTime(getCurrentTime() - (period * iterationsToDiscard));
 			totalPackets += ps.getNumPackets();
 			averageConsumption += ps.getEnergyConsumption(false);
 			averageRate += ps.getRate(false);
@@ -191,7 +218,11 @@ public class NetworkSimulator {
 			Queue queue = totalPortStatistics.get(deviceId).get(pn).getQueue();
 			accumulatedDelay += queue.getAccumulatedDelay();
 			totalPacketsToComputeDelay += queue.getNumPackets();
-			queue.update(delay * iteration);
+			queue.update(period * iteration);
+
+			// Do final processing in queue
+			queue.finishQueue();
+
 			totalLostPackets += queue.getNumExceeded();
 			printStream.println(ps);
 		}
@@ -202,12 +233,10 @@ public class NetworkSimulator {
 
 		printStream.println("Average consumption: " + df.format(averageConsumption * 100.0) + " %");
 		printStream.println("Total loss percent: " + df.format(totalLostPackets * 100.0 / totalPackets) + " %");
-		// DEBUG:
-		System.out.println("Average packet size: " + df.format(((double) packetSizeSum) / numPackets) + " bytes");
 		String finalResult = "";
 		finalResult += inputFile + " "; // input filename
 		finalResult += algorithm.getClass().getSimpleName() + " "; // algorithm
-		finalResult += df.format(delay) + " "; // sampling period in seconds
+		finalResult += df.format(period) + " "; // sampling period in seconds
 		// range of bits used to identify the flows
 		finalResult += startBitDstIp + "-" + endBitDstIp + " ";
 		finalResult += df.format(queueSize * 1e3) + " "; // size of the buffer in packets
@@ -222,19 +251,26 @@ public class NetworkSimulator {
 		finalResult += "\n";
 
 		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps)\n";
-		System.out.println(header + finalResult);
 
-		synchronized (this) {
-			try {
-				Files.write(Paths.get(fileToAppendFinalResults), finalResult.getBytes(), StandardOpenOption.APPEND);
-			} catch (IOException e) {
+		if (fileToAppendFinalResults != null) {
+			// Legacy compatibility. Now, only writing to standard output.
+			synchronized (this) {
 				try {
-					Files.write(Paths.get(fileToAppendFinalResults), header.getBytes(), StandardOpenOption.CREATE_NEW);
 					Files.write(Paths.get(fileToAppendFinalResults), finalResult.getBytes(), StandardOpenOption.APPEND);
-				} catch (IOException e2) {
-					System.err.println("Error writing file: " + fileToAppendFinalResults);
+				} catch (IOException e) {
+					try {
+						Files.write(Paths.get(fileToAppendFinalResults), header.getBytes(),
+								StandardOpenOption.CREATE_NEW);
+						Files.write(Paths.get(fileToAppendFinalResults), finalResult.getBytes(),
+								StandardOpenOption.APPEND);
+					} catch (IOException e2) {
+						System.err.println("Error writing file: " + fileToAppendFinalResults);
+					}
 				}
 			}
+		} else {
+			// Preferred way
+			System.out.println(header + finalResult);
 		}
 	}
 
@@ -247,12 +283,13 @@ public class NetworkSimulator {
 		}
 		iteration += 1;
 		printStream.println("# iteration " + iteration);
-		System.out.println("# iteration " + iteration);
+		// DEBUG
+		System.err.println("# iteration " + iteration);
 
 		if (oldFlowEntries != null) {
 			for (FlowEntry fe : oldFlowEntries) {
 				// Check if the flow has already expired
-				if ((fe.getLastUse() + flowRuleTimeout) > (iteration * delay)) {
+				if ((fe.getLastUse() + flowRuleTimeout) > (iteration * period)) {
 					currentFlowsMap.put(fe.getId(), fe);
 				}
 			}
@@ -293,7 +330,7 @@ public class NetworkSimulator {
 	}
 
 	public double getCurrentTime() {
-		return iteration * delay;
+		return iteration * period;
 	}
 
 	/**
@@ -332,16 +369,13 @@ public class NetworkSimulator {
 			printStream.println(time + " " + sip + " " + dip + " " + bytes);
 		}
 
-		if (time > (iteration * delay)) {
+		if (time > (iteration * period)) {
 			// This interval has ended
 			if (DEBUG) {
 				printStream.println("This interval has ended");
 			}
 			return -1;
 		}
-		// DEBUG: Used to compute the average packet size
-		packetSizeSum += bytes;
-		numPackets += 1;
 		// Do the processing
 
 		String id = computeId(sip, dip);
@@ -408,11 +442,11 @@ public class NetworkSimulator {
 	}
 
 	public double getDelay() {
-		return delay;
+		return period;
 	}
 
 	public void setDelay(double delay) {
-		this.delay = delay;
+		this.period = delay;
 	}
 
 	public double getFlowRuleTimeout() {

@@ -39,7 +39,7 @@ public class Algorithm1 extends ReallocateFlowsTaskSimulator {
 
 		Map<PortNumber, PortStatistics> portOccupation = new HashMap<PortNumber, PortStatistics>();
 		for (PortNumber pn : linkPorts) {
-			portOccupation.put(pn, new PortStatistics(pn, delay, portBandwidth, 0));
+			portOccupation.put(pn, new PortStatistics(null, pn, delay, portBandwidth, 0));
 		}
 
 		List<Entry<PortNumber, PortStatistics>> sortedPortOccupation;

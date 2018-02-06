@@ -1,14 +1,14 @@
 package auxiliar;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
 import utils.DecimalFormatUtils;
+import utils.FileNameUtils;
 
 /**
  * The queue (buffer) size is in maximum delay (in seconds) allowed!
@@ -18,12 +18,9 @@ import utils.DecimalFormatUtils;
  */
 public class Queue {
 	public final static boolean DEBUG = false;
-	public final static boolean PRINT_PACKETS = false;
-	public final static String PACKETS_PATH = "packets/";
+	public final static boolean PRINT_PACKETS = true;
 
 	public double queueSize; // delay in seconds
-
-	private String portName;
 
 	/**
 	 * Drop packets that exceed the threshold.
@@ -47,7 +44,11 @@ public class Queue {
 
 	private double referenceTimestamp = 0;
 
-	public Queue(String portName, double queueSize) {
+	private BufferedWriter writer;
+
+	private String fileName;
+
+	public Queue(String subFolder, String portName, double queueSize) {
 		this.list = new ArrayList<Packet>();
 		this.lastTransmittedTimestamp = 0;
 		this.numExceeded = 0;
@@ -56,40 +57,55 @@ public class Queue {
 		this.numPackets = 0;
 		this.maxPackets = 0;
 		this.policy = POLICY_DROP;
-		this.portName = portName;
 		this.queueSize = queueSize;
 
 		// Ensure the folder exists and it is empty
-		File directory = new File(PACKETS_PATH);
+		File directory = new File(FileNameUtils.PACKETS_PATH + subFolder);
+		fileName = FileNameUtils.PACKETS_PATH + subFolder + File.separator + portName;
 		if (!directory.exists()) {
-			directory.mkdir();
+			directory.mkdirs();
 		} else {
-			cleanPacketsDirectory();
+			removeQueueFile();
 		}
+
+		initWriter();
 
 	}
 
-	public void cleanPacketsDirectory() {
-		// Ensure the folder exists and it is empty
-		File directory = new File(PACKETS_PATH);
-		if (!directory.exists()) {
-			directory.mkdir();
-		} else {
-			File[] files = directory.listFiles();
-			if (files != null) {
-				for (File f : files) {
-					if (!f.isDirectory()) {
-						f.delete();
-					}
-				}
-			}
+	private void initWriter() {
+		try {
+			writer = new BufferedWriter(new FileWriter(fileName));
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
-	public void clean() {
+	public void finishQueue() {
+		try {
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void removeQueueFile() {
+		File file = new File(fileName);
+		if (file.exists()) {
+			file.delete();
+		}
+	}
+
+	public void queueDiscardPrevious(double referenceTimestamp) {
+		finishQueue();
+		removeQueueFile();
+		initWriter();
+		this.referenceTimestamp = referenceTimestamp;
+	}
+
+	public void clean(double referenceTimestamp) {
 		cleanExceeded();
 		cleanDelay();
-		cleanPacketsDirectory();
+		queueDiscardPrevious(referenceTimestamp);
 	}
 
 	public void cleanExceeded() {
@@ -177,22 +193,12 @@ public class Queue {
 					String toPrint = DecimalFormatUtils.getDecimalFormat9()
 							.format(list.get(0).getQueueArrivalTimestamp() - referenceTimestamp) + " "
 							+ list.get(0).getBytes() + "\n";
-					synchronized (this) {
-						try {
-							Files.write(Paths.get(PACKETS_PATH + portName), toPrint.getBytes(),
-									StandardOpenOption.APPEND);
-						} catch (IOException e) {
-							try {
-								referenceTimestamp = list.get(0).getQueueArrivalTimestamp();
-								toPrint = DecimalFormatUtils.getDecimalFormat9()
-										.format(list.get(0).getQueueArrivalTimestamp() - referenceTimestamp) + " "
-										+ list.get(0).getBytes() + "\n";
-								Files.write(Paths.get(PACKETS_PATH + portName), toPrint.getBytes(),
-										StandardOpenOption.CREATE_NEW);
-							} catch (IOException e2) {
-								System.err.println("Error writing file: " + PACKETS_PATH + portName);
-							}
-						}
+					try {
+						writer.write(toPrint);
+					} catch (IOException e) {
+						e.printStackTrace();
+						System.out.println(writer);
+						System.exit(1);
 					}
 				}
 

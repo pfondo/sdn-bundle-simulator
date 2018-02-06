@@ -22,8 +22,7 @@ public abstract class ReallocateFlowsTaskSimulator {
 
 	protected final Logger log = new Logger();
 
-	protected double portBandwidth = 1.25E9; // 1.25E9 = 1.25 GB/s = 10
-												// Gb/s
+	protected double portBandwidth = 1.25E9; // 1.25E9 = 1.25 GB/s = 10 Gb/s
 	protected double portBytesInterface;
 
 	protected Map<DeviceId, Map<PortNumber, Long>> portsBytes;
@@ -38,12 +37,12 @@ public abstract class ReallocateFlowsTaskSimulator {
 	private Map<DeviceId, Map<DeviceId, List<PortNumber>>> topology = new HashMap<DeviceId, Map<DeviceId, List<PortNumber>>>();
 
 	/**
-	 * Computes the number of bytes available on each port of the aggregation to
-	 * be transmitted on the polling interval
+	 * Computes the number of bytes available on each port of the aggregation to be
+	 * transmitted on the polling interval
 	 * 
 	 * @param numFlows
-	 *            Number of flows assigned to the port. If 0, 100 % of the
-	 *            bandwidth of the port is returned.
+	 *            Number of flows assigned to the port. If 0, 100 % of the bandwidth
+	 *            of the port is returned.
 	 * @return The number of bytes available on the port of the aggregation
 	 */
 	protected double getPortBytesAvailable(long numFlows) {
@@ -149,10 +148,9 @@ public abstract class ReallocateFlowsTaskSimulator {
 	protected abstract Map<FlowEntry, PortNumber> computeAllocation(Map<FlowEntry, Long> flowMap,
 			Set<PortNumber> linkPorts);
 
-	class Task extends Thread {
-
-		@Override
-		public void run() {
+	// In legacy: Task extends Thread.
+	class Task {
+		public void start() {
 			FlowBytesHistory flowBytesHistory = new FlowBytesHistory();
 			while (!networkSimulator.isFinished()) {
 				for (DeviceId deviceId : getTopology().keySet()) {
@@ -169,9 +167,8 @@ public abstract class ReallocateFlowsTaskSimulator {
 									previousFlowEntries, portBandwidth);
 
 							if (flowEntries == null) {
-								// Then execution has finished and we don't want
-								// to consider last interval since it could be
-								// incomplete
+								// Then execution has finished and we don't want to consider last interval since
+								// it could be incomplete
 								break;
 							}
 
