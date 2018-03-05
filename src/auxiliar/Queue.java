@@ -168,6 +168,21 @@ public class Queue {
 			}
 		} else {
 			list.add(packet);
+			if (PRINT_PACKETS) {
+				// Print to file of this port! (Miguel EEE simulator)
+				if (packet.getQueueArrivalTimestamp() - referenceTimestamp >= 0) {
+					String toPrint = DecimalFormatUtils.getDecimalFormat9()
+							.format(packet.getQueueArrivalTimestamp() - referenceTimestamp) + " "
+							+ packet.getBytes() + "\n";
+					try {
+						writer.write(toPrint);
+					} catch (IOException e) {
+						e.printStackTrace();
+						System.out.println(writer);
+						System.exit(1);
+					}
+				}
+			}
 		}
 		maxPackets = Math.max(maxPackets, list.size());
 	}
@@ -187,19 +202,6 @@ public class Queue {
 					System.out.println("[DEBUG]     isExpired="
 							+ list.get(0).isExpired(currentTimestamp - lastTransmittedTimestamp));
 					System.out.println("[DEBUG]     transmissionTime=" + list.get(0).getTransmissionTime());
-				}
-				if (PRINT_PACKETS) {
-					// Print to file of this port! (Miguel EEE simulator)
-					String toPrint = DecimalFormatUtils.getDecimalFormat9()
-							.format(list.get(0).getQueueArrivalTimestamp() - referenceTimestamp) + " "
-							+ list.get(0).getBytes() + "\n";
-					try {
-						writer.write(toPrint);
-					} catch (IOException e) {
-						e.printStackTrace();
-						System.out.println(writer);
-						System.exit(1);
-					}
 				}
 
 				double packetDelay = lastTransmittedTimestamp - list.get(0).getQueueArrivalTimestamp();

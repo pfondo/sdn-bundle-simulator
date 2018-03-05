@@ -71,7 +71,8 @@ public class PortStatistics {
 		double portBytesAvailable = portBandwidth * time;
 		if (isInterval) {
 			occupation = (bytesInterval / portBytesAvailable) + remainingOccupation;
-			remainingOccupation = Math.max(0, occupation - 1);
+			// Experimental: Uncomment this line to have a non zero remaining occupation
+			// remainingOccupation = Math.max(0, occupation - 1);
 		} else {
 			occupation = (bytes / portBytesAvailable);
 		}

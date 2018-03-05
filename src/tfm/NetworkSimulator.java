@@ -44,6 +44,8 @@ public class NetworkSimulator {
 	private int startBitDstIp = 0;
 	private int endBitDstIp = 0;
 
+	private double speed = 0;
+
 	private int iterationsToDiscard;
 
 	private String fileToAppendFinalResults;
@@ -72,7 +74,7 @@ public class NetworkSimulator {
 	 */
 	public NetworkSimulator(Class<? extends ReallocateFlowsTaskSimulator> algorithmClass, String inputFile,
 			double delay, double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream,
-			double queueSize, String fileToAppendFinalResults, int iterationsToDiscard) {
+			double queueSize, String fileToAppendFinalResults, int iterationsToDiscard, double speed) {
 		this.inputFile = inputFile;
 		iteration = 0;
 		finished = false;
@@ -93,13 +95,14 @@ public class NetworkSimulator {
 		this.printStream = printStream;
 		this.fileToAppendFinalResults = fileToAppendFinalResults;
 		this.queueSize = queueSize;
+		this.speed = speed;
 		this.iterationsToDiscard = iterationsToDiscard;
 		// Must be called at the end of this constructor
 		this.algorithm.init(this);
 	}
 
 	public NetworkSimulator(Configuration conf) {
-		this.inputFile = conf.inputFile;
+		this.inputFile = conf.getInputFile();
 		iteration = 0;
 		finished = false;
 		line = "";
@@ -111,15 +114,16 @@ public class NetworkSimulator {
 			e.printStackTrace();
 			return;
 		}
-		this.algorithm = ReallocateFlowsTaskSimulator.newInstance(conf.algorithm);
-		this.period = conf.period;
-		this.flowRuleTimeout = conf.flowRuleTimeout;
-		this.startBitDstIp = conf.startBitDstIp;
-		this.endBitDstIp = conf.endBitDstIp;
-		this.printStream = conf.printStream;
+		this.algorithm = ReallocateFlowsTaskSimulator.newInstance(conf.getAlgorithm());
+		this.period = conf.getPeriod();
+		this.flowRuleTimeout = conf.getFlowRuleTimeout();
+		this.startBitDstIp = conf.getStartBitDstIp();
+		this.endBitDstIp = conf.getEndBitDstIp();
+		this.printStream = conf.getPrintStream();
 		this.fileToAppendFinalResults = null;
-		this.queueSize = conf.queueSize;
-		this.iterationsToDiscard = conf.iterationsToDiscard;
+		this.queueSize = conf.getQueueSize();
+		this.speed = conf.getSpeed();
+		this.iterationsToDiscard = conf.getIterationsToDiscard();
 		// Must be called at the end of this constructor
 		this.algorithm.init(this);
 	}
@@ -145,7 +149,7 @@ public class NetworkSimulator {
 			totalPortStatistics.get(deviceId).put(pn,
 					new PortStatistics(
 							FileNameUtils.generateOutputFileName(algorithm.getClass(), inputFile, period,
-									flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize),
+									flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed),
 							pn, period, PORT_BANDWIDTH, queueSize));
 		}
 	}
@@ -248,9 +252,11 @@ public class NetworkSimulator {
 		finalResult += df.format(averageDelay * 1e6) + " ";
 		// average rate in Mbps
 		finalResult += df.format(averageRate) + " ";
+		// speed of the trace
+		finalResult += df.format(speed) + " ";
 		finalResult += "\n";
 
-		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps)\n";
+		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps) speed\n";
 
 		if (fileToAppendFinalResults != null) {
 			// Legacy compatibility. Now, only writing to standard output.
@@ -355,7 +361,7 @@ public class NetworkSimulator {
 		try {
 			String[] splittedLine = line.split(" ");
 			// Debug divide time between into 10
-			time = Double.parseDouble(splittedLine[0]) / 10;
+			time = Double.parseDouble(splittedLine[0]) / speed;
 			sip = splittedLine[1];
 			dip = splittedLine[2];
 			bytes = Integer.parseInt(splittedLine[3]);

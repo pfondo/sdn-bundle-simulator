@@ -18,29 +18,30 @@ import utils.FileNameUtils;
 
 public class Configuration {
 
-	PrintStream printStream;
-	int iterationsToDiscard = 1;
-
 	// DEFAULT_VALUES
-	String DEFAULT_INPUT_FILE = "trace_complete.txt";
-	String DEFAULT_ALGORITHM = "3";
-	String DEFAULT_SAMPLING_PERIOD = "0.5";
-	String DEFAULT_FR_TIMEOUT = "30";
-	String DEFAULT_START_BIT_DST_IP = "0";
-	String DEFAULT_END_BIT_DST_IP = "8";
-	String DEFAULT_QUEUE_SIZE = "0.01";
+	public final String DEFAULT_INPUT_FILE = "trace_complete.txt";
+	public final String DEFAULT_ALGORITHM = "3";
+	public final String DEFAULT_SAMPLING_PERIOD = "0.5";
+	public final String DEFAULT_FR_TIMEOUT = "30";
+	public final String DEFAULT_START_BIT_DST_IP = "0";
+	public final String DEFAULT_END_BIT_DST_IP = "8";
+	public final String DEFAULT_QUEUE_SIZE = "0.01";
+	public final String DEFAULT_SPEED = "1";
+
+	private PrintStream printStream;
+	private int iterationsToDiscard = 1;
 
 	// Configurable parameters
-	String inputFile;
-	Class<? extends ReallocateFlowsTaskSimulator> algorithm = new Algorithm3().getClass();
-	double period = 0.5;
-	double flowRuleTimeout = 30;
-	int startBitDstIp = 0;
-	int endBitDstIp = 8;
-	double queueSize = 0.01; // In seconds // 1.2 ms = ((1000 pkt * 1500 byte/pkt * 8 bit/byte)12 Mbit over a
-								// 10 Gb/s link)
+	private String inputFile;
+	private Class<? extends ReallocateFlowsTaskSimulator> algorithm = new Algorithm3().getClass();
+	private double period = 0.5;
+	private double flowRuleTimeout = 30;
+	private int startBitDstIp = 0;
+	private int endBitDstIp = 8;
+	private double queueSize = 0.01;
+	private double speed = 1;
 
-	String outputFile;
+	private String outputFile;
 
 	public Configuration(String args[]) {
 		parse(args);
@@ -61,7 +62,7 @@ public class Configuration {
 		algorithmOption.setArgName("ALGORITHM");
 		options.addOption(algorithmOption);
 
-		Option periodOption = new Option("d", "period", true,
+		Option periodOption = new Option("p", "period", true,
 				"Specifies flow sampling period (seconds) [default: 0.5].");
 		periodOption.setRequired(false);
 		periodOption.setArgName("PERIOD");
@@ -91,18 +92,26 @@ public class Configuration {
 		queueSizeOption.setArgName("SIZE");
 		options.addOption(queueSizeOption);
 
+		Option speedOption = new Option("x", "speed", true, "Specifies the relative speed of the trace [default: 1].");
+		speedOption.setRequired(false);
+		speedOption.setArgName("SPEED");
+		options.addOption(speedOption);
+
 		Option helpOption = new Option("h", "help", false, "Shows this help menu.");
 		helpOption.setRequired(false);
 		options.addOption(helpOption);
 
 		CommandLineParser parser = new DefaultParser();
 		HelpFormatter formatter = new HelpFormatter();
-		CommandLine cmd;
+		CommandLine cmd = null;
 
 		try {
 			cmd = parser.parse(options, args);
+			if (cmd.hasOption("h")) {
+				formatter.printHelp("sdn-bundle-simulator", options, true);
+				System.exit(1);
+			}
 		} catch (ParseException e) {
-			System.out.println(e.getMessage());
 			formatter.printHelp("sdn-bundle-simulator", options, true);
 
 			System.exit(1);
@@ -131,6 +140,8 @@ public class Configuration {
 		this.endBitDstIp = Integer.parseInt(cmd.getOptionValue("endBitDstIp", DEFAULT_END_BIT_DST_IP));
 
 		this.queueSize = Double.parseDouble(cmd.getOptionValue("queueSize", DEFAULT_QUEUE_SIZE));
+
+		this.speed = Double.parseDouble(cmd.getOptionValue("speed", DEFAULT_SPEED));
 	}
 
 	/**
@@ -138,13 +149,101 @@ public class Configuration {
 	 */
 	public void init() {
 		outputFile = FileNameUtils.BASE_PATH + FileNameUtils.generateOutputFileName(algorithm, inputFile, period,
-				flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize);
+				flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed);
 		try {
 			printStream = new PrintStream(new FileOutputStream(outputFile));
 		} catch (FileNotFoundException e) {
 			System.err.println("Error with output file: " + outputFile + ". Using System.out.");
 			printStream = System.out;
 		}
+	}
+
+	public PrintStream getPrintStream() {
+		return printStream;
+	}
+
+	public void setPrintStream(PrintStream printStream) {
+		this.printStream = printStream;
+	}
+
+	public int getIterationsToDiscard() {
+		return iterationsToDiscard;
+	}
+
+	public void setIterationsToDiscard(int iterationsToDiscard) {
+		this.iterationsToDiscard = iterationsToDiscard;
+	}
+
+	public String getInputFile() {
+		return inputFile;
+	}
+
+	public void setInputFile(String inputFile) {
+		this.inputFile = inputFile;
+	}
+
+	public Class<? extends ReallocateFlowsTaskSimulator> getAlgorithm() {
+		return algorithm;
+	}
+
+	public void setAlgorithm(Class<? extends ReallocateFlowsTaskSimulator> algorithm) {
+		this.algorithm = algorithm;
+	}
+
+	public double getPeriod() {
+		return period;
+	}
+
+	public void setPeriod(double period) {
+		this.period = period;
+	}
+
+	public double getFlowRuleTimeout() {
+		return flowRuleTimeout;
+	}
+
+	public void setFlowRuleTimeout(double flowRuleTimeout) {
+		this.flowRuleTimeout = flowRuleTimeout;
+	}
+
+	public int getStartBitDstIp() {
+		return startBitDstIp;
+	}
+
+	public void setStartBitDstIp(int startBitDstIp) {
+		this.startBitDstIp = startBitDstIp;
+	}
+
+	public int getEndBitDstIp() {
+		return endBitDstIp;
+	}
+
+	public void setEndBitDstIp(int endBitDstIp) {
+		this.endBitDstIp = endBitDstIp;
+	}
+
+	public double getQueueSize() {
+		return queueSize;
+	}
+
+	public void setQueueSize(double queueSize) {
+		this.queueSize = queueSize;
+	}
+
+	public double getSpeed() {
+		return speed;
+	}
+
+	public void setSpeed(double speed) {
+		this.speed = speed;
+	}
+
+	public String getOutputFile() {
+		return outputFile;
+	}
+
+	public void setOutputFile(String outputFile) {
+		this.outputFile = outputFile;
 	}
 
 }
