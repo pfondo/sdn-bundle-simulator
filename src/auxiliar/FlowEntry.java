@@ -6,18 +6,20 @@ public class FlowEntry {
 	private String id;
 	private double lastUse;
 	private double since;
+	private boolean isLowLatency;
 
 	public FlowEntry() {
 		outputPort = null;
 		bytes = 0;
 	}
 
-	public FlowEntry(String id, PortNumber outputPort, long bytes, double lastUse, double since) {
+	public FlowEntry(String id, PortNumber outputPort, long bytes, double lastUse, double since, boolean isLowLatency) {
 		this.outputPort = outputPort;
 		this.bytes = bytes;
 		this.id = id;
 		this.lastUse = lastUse;
 		this.since = since;
+		this.setLowLatency(isLowLatency);
 	}
 
 	public PortNumber getOutputPort() {
@@ -88,6 +90,14 @@ public class FlowEntry {
 	@Override
 	public String toString() {
 		return id;
+	}
+
+	public boolean isLowLatency() {
+		return isLowLatency;
+	}
+
+	public void setLowLatency(boolean isLowLatency) {
+		this.isLowLatency = isLowLatency;
 	}
 
 }

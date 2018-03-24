@@ -51,9 +51,12 @@ public class NetworkSimulator {
 	private String fileToAppendFinalResults;
 
 	private String inputFile;
+
 	private PrintStream printStream;
 
 	private ReallocateFlowsTaskSimulator algorithm;
+
+	private long numFlowMods;
 
 	private Map<DeviceId, Map<PortNumber, PortStatistics>> totalPortStatistics;
 
@@ -79,6 +82,7 @@ public class NetworkSimulator {
 		iteration = 0;
 		finished = false;
 		line = "";
+		numFlowMods = 0;
 		totalPortStatistics = new HashMap<DeviceId, Map<PortNumber, PortStatistics>>();
 		br = null;
 		try {
@@ -106,6 +110,7 @@ public class NetworkSimulator {
 		iteration = 0;
 		finished = false;
 		line = "";
+		numFlowMods = 0;
 		totalPortStatistics = new HashMap<DeviceId, Map<PortNumber, PortStatistics>>();
 		br = null;
 		try {
@@ -154,8 +159,8 @@ public class NetworkSimulator {
 		}
 	}
 
-	public String computeId(String srcIP, String dstIP) {
-		String id = "";
+	public String computeId(String srcIP, String dstIP, boolean isLowLatency) {
+		String id = isLowLatency ? "1" : "0";
 		int num;
 
 		String dstIPBits = "";
@@ -165,7 +170,8 @@ public class NetworkSimulator {
 			dstIPBits += String.format("%08d", Integer.parseInt(Integer.toBinaryString(num)));
 		}
 
-		id = dstIPBits.substring(startBitDstIp, endBitDstIp);
+		id += dstIPBits.substring(startBitDstIp, endBitDstIp);
+
 		return id;
 	}
 
@@ -177,29 +183,34 @@ public class NetworkSimulator {
 		}
 	}
 
-	public void printPortStatistics(DeviceId deviceId, Set<PortNumber> portList, Map<FlowEntry, Long> flowMap,
-			double PORT_BANDWIDTH) {
+	public void printPortStatistics(DeviceId deviceId, Set<PortNumber> portList, Map<PortNumber, Long> numFlowsPerPort,
+			long flowMods, double PORT_BANDWIDTH) {
 		Map<PortNumber, PortStatistics> portOccupation = new HashMap<PortNumber, PortStatistics>();
-		PortNumber currentPort;
+
 		double averageConsumption = 0;
 		for (PortNumber pn : portList) {
 			PortStatistics ps = totalPortStatistics.get(deviceId).get(pn);
 			portOccupation.put(pn, ps);
 		}
-		for (FlowEntry flowEntry : flowMap.keySet()) {
-			currentPort = flowEntry.getOutputPort();
-			portOccupation.get(currentPort).addFlow();
+		for (PortNumber currentPort : numFlowsPerPort.keySet()) {
+			portOccupation.get(currentPort).setNumFlowsInterval(numFlowsPerPort.get(currentPort));
 		}
+
+		// Reset interval counters since this interval has ended
+		boolean mustDiscard = iteration <= iterationsToDiscard;
 		for (PortNumber pn : portOccupation.keySet()) {
 			averageConsumption += portOccupation.get(pn).getEnergyConsumption(true);
 			printStream.println(portOccupation.get(pn).toStringInterval());
-			// Reset interval counters since this interval has ended
-			boolean mustDiscard = iteration <= iterationsToDiscard;
 			totalPortStatistics.get(deviceId).get(pn).finishInterval(mustDiscard, iteration * period);
 		}
 		averageConsumption /= portList.size();
 		printStream.println("Average consumption: "
 				+ DecimalFormatUtils.getDecimalFormat4().format(averageConsumption * 100) + " %");
+
+		// TODO: Consider discarding this value if mustDiscard
+		numFlowMods += flowMods;
+
+		printStream.println("Num flow mods: " + flowMods);
 		// printQueueStatistics();
 	}
 
@@ -210,6 +221,8 @@ public class NetworkSimulator {
 		double totalPackets = 0;
 		double accumulatedDelay = 0;
 		long totalPacketsToComputeDelay = 0;
+		double accumulatedDelayLowLatency = 0;
+		long totalPacketsToComputeDelayLowLatency = 0;
 		for (PortNumber pn : portList) {
 			PortStatistics ps = totalPortStatistics.get(deviceId).get(pn);
 			// Set current time of the simulation
@@ -220,23 +233,34 @@ public class NetworkSimulator {
 
 			// Update queue of this port to the final instant
 			Queue queue = totalPortStatistics.get(deviceId).get(pn).getQueue();
-			accumulatedDelay += queue.getAccumulatedDelay();
-			totalPacketsToComputeDelay += queue.getNumPackets();
-			queue.update(period * iteration);
+			queue.update(period * iteration + queueSize);
 
 			// Do final processing in queue
 			queue.finishQueue();
 
+			accumulatedDelay += queue.getAccumulatedDelay();
+			totalPacketsToComputeDelay += queue.getNumPackets();
+			//System.out.println("[DEBUG] Port " + pn.toLong() + ":");
+			//System.out.println("[DEBUG] Accumulated delay: " + DecimalFormatUtils.getDecimalFormat4().format(accumulatedDelay * 1e6));
+			//System.out.println("[DEBUG] Num packets: " + totalPacketsToComputeDelay);			
+
+			accumulatedDelayLowLatency += queue.getAccumulatedDelayLowLatency();
+			totalPacketsToComputeDelayLowLatency += queue.getNumPacketsLowLatency();
+			
 			totalLostPackets += queue.getNumExceeded();
 			printStream.println(ps);
 		}
 		averageConsumption /= portList.size();
 		double averageDelay = accumulatedDelay / totalPacketsToComputeDelay;
+		double averageDelayLowLatency = accumulatedDelayLowLatency / totalPacketsToComputeDelayLowLatency;
 
 		DecimalFormat df = DecimalFormatUtils.getDecimalFormat4();
 
 		printStream.println("Average consumption: " + df.format(averageConsumption * 100.0) + " %");
 		printStream.println("Total loss percent: " + df.format(totalLostPackets * 100.0 / totalPackets) + " %");
+		// Print num flow mods
+		printStream.println("Num flow mods: " + numFlowMods);
+
 		String finalResult = "";
 		finalResult += inputFile + " "; // input filename
 		finalResult += algorithm.getClass().getSimpleName() + " "; // algorithm
@@ -254,12 +278,15 @@ public class NetworkSimulator {
 		finalResult += df.format(averageRate) + " ";
 		// speed of the trace
 		finalResult += df.format(speed) + " ";
+		// total number of flow mods
+		finalResult += numFlowMods;
 		finalResult += "\n";
 
-		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps) speed\n";
+		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps) speed flow_mods\n";
 
 		if (fileToAppendFinalResults != null) {
-			// Legacy compatibility. Now, only writing to standard output.
+			// Legacy compatibility, not being used right now. Currently, only writing to
+			// standard output.
 			synchronized (this) {
 				try {
 					Files.write(Paths.get(fileToAppendFinalResults), finalResult.getBytes(), StandardOpenOption.APPEND);
@@ -277,6 +304,10 @@ public class NetworkSimulator {
 		} else {
 			// Preferred way
 			System.out.println(header + finalResult);
+		}
+		if (totalPacketsToComputeDelayLowLatency > 0) {
+			System.out.println("Average delay (us): " + df.format(averageDelay * 1e6));
+			System.out.println("Average delay of low-latency packets (us): " + df.format(averageDelayLowLatency * 1e6));
 		}
 	}
 
@@ -345,6 +376,7 @@ public class NetworkSimulator {
 	 */
 	private int processLine(String line, Map<String, FlowEntry> currentFlows, DeviceId deviceId,
 			double PORT_BANDWIDTH) {
+		boolean isLowLatency = false;
 		// Allow comment lines starting with #
 		if (line == null) {
 			return 1;
@@ -360,11 +392,11 @@ public class NetworkSimulator {
 
 		try {
 			String[] splittedLine = line.split(" ");
-			// Debug divide time between into 10
 			time = Double.parseDouble(splittedLine[0]) / speed;
 			sip = splittedLine[1];
 			dip = splittedLine[2];
 			bytes = Integer.parseInt(splittedLine[3]);
+			isLowLatency = splittedLine.length > 4; // If the line has more than 4 items then it is a low-latency packet
 		} catch (Exception e) {
 			System.err.println("Error on line: " + line);
 			e.printStackTrace();
@@ -372,7 +404,7 @@ public class NetworkSimulator {
 		}
 
 		if (DEBUG) {
-			printStream.println(time + " " + sip + " " + dip + " " + bytes);
+			System.err.println(time + " " + sip + " " + dip + " " + bytes);
 		}
 
 		if (time > (iteration * period)) {
@@ -382,9 +414,9 @@ public class NetworkSimulator {
 			}
 			return -1;
 		}
-		// Do the processing
 
-		String id = computeId(sip, dip);
+		// Do the processing
+		String id = computeId(sip, dip, isLowLatency);
 		FlowEntry matchFlow = null;
 		if (currentFlows.containsKey(id)) {
 			// Already present
@@ -393,12 +425,16 @@ public class NetworkSimulator {
 			currentFlows.get(id).setLastUse(time);
 		} else {
 			// No present in the last poll: Allocate new port
-			matchFlow = new FlowEntry(id, selectOutputPort(new DeviceId(1), new DeviceId(2)), bytes, time, time);
+			if (isLowLatency) {
+				matchFlow = new FlowEntry(id, selectOutputPortLowLatency(new DeviceId(1), new DeviceId(2)), bytes, time,
+						time, isLowLatency);
+			} else {
+				matchFlow = new FlowEntry(id, selectOutputPort(new DeviceId(1), new DeviceId(2)), bytes, time, time,
+						isLowLatency);
+			}
 			currentFlows.put(id, matchFlow);
 		}
 		// IMPORTANT: Editing here!
-		// portPackets.get(deviceId).put(matchFlow.getOutputPort(),
-		// portPackets.get(deviceId).get(matchFlow.getOutputPort()) + 1);
 		PortNumber selectedPort = matchFlow.getOutputPort();
 		totalPortStatistics.get(deviceId).get(selectedPort).addPackets(1);
 		totalPortStatistics.get(deviceId).get(selectedPort).addBytes(bytes);
@@ -407,7 +443,7 @@ public class NetworkSimulator {
 			printStream.println("[DEBUG] port=" + matchFlow.getOutputPort() + ", currentTimestamp=" + time);
 		}
 		queue.update(time);
-		Packet packet = new Packet(bytes, PORT_BANDWIDTH, time);
+		Packet packet = new Packet(bytes, PORT_BANDWIDTH, time, isLowLatency);
 		queue.addPacket(packet);
 		if (Queue.DEBUG) {
 			printStream.print("Added packet to queue of port " + matchFlow.getOutputPort() + "...");
@@ -417,7 +453,7 @@ public class NetworkSimulator {
 		return 0;
 	}
 
-	// As of 26/06/2017, returns a random port
+	// Returns a random port
 	private PortNumber selectOutputPort(DeviceId src, DeviceId dstDevice) {
 
 		PortNumber portNumber = null;
@@ -435,6 +471,22 @@ public class NetworkSimulator {
 			}
 			int selected = (int) (aggregation.size() * Math.random());
 			portNumber = (PortNumber) aggregation.toArray()[selected];
+		}
+		return portNumber;
+	}
+
+	// Returns the highest port number
+	private PortNumber selectOutputPortLowLatency(DeviceId src, DeviceId dstDevice) {
+
+		PortNumber portNumber = null;
+		if (dstDevice != null) {
+			long maxPortNumber = 0;
+			for (PortNumber pn : algorithm.getLinkPorts(src, dstDevice)) {
+				if (pn.toLong() > maxPortNumber) {
+					maxPortNumber = pn.toLong();
+					portNumber = pn;
+				}
+			}
 		}
 		return portNumber;
 	}

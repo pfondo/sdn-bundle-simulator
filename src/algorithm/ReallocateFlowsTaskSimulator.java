@@ -25,8 +25,6 @@ public abstract class ReallocateFlowsTaskSimulator {
 	protected double portBandwidth = 1.25E9; // 1.25E9 = 1.25 GB/s = 10 Gb/s
 	protected double portBytesInterface;
 
-	protected Map<DeviceId, Map<PortNumber, Long>> portsBytes;
-
 	protected Set<FlowEntry> previousFlowEntries;
 
 	protected double delay;
@@ -76,7 +74,7 @@ public abstract class ReallocateFlowsTaskSimulator {
 
 	public ReallocateFlowsTaskSimulator() {
 		setTopology();
-		portsBytes = new HashMap<DeviceId, Map<PortNumber, Long>>();
+		// portsBytes = new HashMap<DeviceId, Map<PortNumber, Long>>();
 	}
 
 	// Must be called after instantiation
@@ -134,7 +132,7 @@ public abstract class ReallocateFlowsTaskSimulator {
 					.println("### Printing final statistics for device " + deviceId.getId() + ":");
 			// flowBytesPrev.putIfAbsent(deviceId, new HashMap<>());
 			// flowBytesCurrent = new HashMap<>();
-			portsBytes.putIfAbsent(deviceId, new HashMap<>());
+			// portsBytes.putIfAbsent(deviceId, new HashMap<>());
 			for (DeviceId neighbor : getNeighbors(deviceId)) {
 				Set<PortNumber> linkPorts = getLinkPorts(deviceId, neighbor);
 				if (linkPorts != null) {
@@ -155,7 +153,7 @@ public abstract class ReallocateFlowsTaskSimulator {
 			while (!networkSimulator.isFinished()) {
 				for (DeviceId deviceId : getTopology().keySet()) {
 					flowBytesHistory.initIteration(deviceId);
-					portsBytes.putIfAbsent(deviceId, new HashMap<>());
+					// portsBytes.putIfAbsent(deviceId, new HashMap<>());
 					for (DeviceId neighbor : getNeighbors(deviceId)) {
 						Set<PortNumber> linkPorts = getLinkPorts(deviceId, neighbor);
 						if (linkPorts != null) {
@@ -175,6 +173,7 @@ public abstract class ReallocateFlowsTaskSimulator {
 							for (FlowEntry fe : flowEntries) {
 								PortNumber pn = fe.getOutputPort();
 								if (!linkPorts.contains(pn)) {
+									// Exclude this flow if it is not allocated to any port of the bundle
 									continue;
 								}
 
@@ -184,26 +183,40 @@ public abstract class ReallocateFlowsTaskSimulator {
 
 								flowMap.put(fe, flowBytesHistory.getFlowBytesEstimation(deviceId, fe));
 							}
-							if (DEBUG) {
-								networkSimulator.printFlowStatistics(flowEntries);
-							} else {
-								// networkSimulator.printFlowStatistics(flowEntries);
-								networkSimulator.printPortStatistics(deviceId, linkPorts, flowMap, portBandwidth);
-							}
 
-							Map<FlowEntry, PortNumber> flowAllocation = computeAllocation(flowMap, linkPorts);
+							// Remove low-latency flows from the map passed to the reallocation method
+							Map<FlowEntry, Long> filteredFlowMap = new HashMap<FlowEntry, Long>(flowMap);
+							for (FlowEntry fe : flowMap.keySet()) {
+								if (fe.isLowLatency()) {
+									filteredFlowMap.remove(fe);
+								}
+							}
+							Map<FlowEntry, PortNumber> flowAllocation = computeAllocation(filteredFlowMap, linkPorts);
+
+							long numFlowMods = 0;
 
 							// Update flows based on allocation: Only need to be
 							// done in simulator
-							for (FlowEntry fe : flowAllocation.keySet()) {
-								PortNumber oldOutputPort = fe.getOutputPort();
-								fe.setOutputPort(flowAllocation.get(fe));
-								long bytes = flowMap.get(fe);
-								if (portsBytes.get(deviceId).containsKey(oldOutputPort)) {
-									bytes += portsBytes.get(deviceId).get(oldOutputPort);
-								}
-								portsBytes.get(deviceId).put(oldOutputPort, bytes);
+							Map<PortNumber, Long> numFlowsPerPort = new HashMap<PortNumber, Long>();
+							for (PortNumber port : linkPorts) {
+								numFlowsPerPort.put(port, (long) 0);
 							}
+							for (FlowEntry fe : flowMap.keySet()) {
+								PortNumber oldOutputPort = fe.getOutputPort();
+								numFlowsPerPort.put(oldOutputPort, numFlowsPerPort.get(oldOutputPort) + 1);
+
+								if (flowAllocation.containsKey(fe)) {
+									if (!fe.getOutputPort().equals(flowAllocation.get(fe))) {
+										// The FlowEntry has been scheduled to a new port
+										numFlowMods += 1;
+										fe.setOutputPort(flowAllocation.get(fe));
+									}
+								}
+							}
+
+							// Print statistics of the previous interval (before modifying the flows!)
+							networkSimulator.printPortStatistics(deviceId, linkPorts, numFlowsPerPort, numFlowMods,
+									portBandwidth);
 
 							previousFlowEntries = flowAllocation.keySet();
 						}

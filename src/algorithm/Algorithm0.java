@@ -89,8 +89,7 @@ public class Algorithm0 extends ReallocateFlowsTaskSimulator {
 			// Add remaining ports to port occupation
 			for (PortNumber pn : linkPorts) {
 				if (!portOccupation.containsKey(pn)) {
-					portOccupation.put(pn,
-							new PortStatistics(null, pn, delay, portBandwidth, 0));
+					portOccupation.put(pn, new PortStatistics(null, pn, delay, portBandwidth, 0));
 				}
 			}
 			for (PortNumber pn : portOccupation.keySet()) {
