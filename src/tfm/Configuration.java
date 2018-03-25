@@ -21,6 +21,7 @@ public class Configuration {
 	// DEFAULT_VALUES
 	public final String DEFAULT_INPUT_FILE = "trace_complete.txt";
 	public final String DEFAULT_ALGORITHM = "3";
+	public final String DEFAULT_NUM_PORTS = "5";
 	public final String DEFAULT_SAMPLING_PERIOD = "0.5";
 	public final String DEFAULT_FR_TIMEOUT = "30";
 	public final String DEFAULT_START_BIT_DST_IP = "0";
@@ -34,12 +35,13 @@ public class Configuration {
 	// Configurable parameters
 	private String inputFile;
 	private Class<? extends ReallocateFlowsTaskSimulator> algorithm = new Algorithm3().getClass();
-	private double period = 0.5;
-	private double flowRuleTimeout = 30;
-	private int startBitDstIp = 0;
-	private int endBitDstIp = 8;
-	private double queueSize = 0.01;
-	private double speed = 1;
+	private int numPorts;
+	private double period;
+	private double flowRuleTimeout;
+	private int startBitDstIp;
+	private int endBitDstIp;
+	private double queueSize;
+	private double speed;
 
 	private String outputFile;
 
@@ -61,6 +63,11 @@ public class Configuration {
 		algorithmOption.setRequired(false);
 		algorithmOption.setArgName("ALGORITHM");
 		options.addOption(algorithmOption);
+
+		Option numPortsOption = new Option("n", "numPorts", true, "Specifies the number of ports. [default: 5].");
+		numPortsOption.setRequired(false);
+		numPortsOption.setArgName("PORTS");
+		options.addOption(numPortsOption);
 
 		Option periodOption = new Option("p", "period", true,
 				"Specifies flow sampling period (seconds) [default: 0.5].");
@@ -130,6 +137,8 @@ public class Configuration {
 		} else if (algorithm.equals("3")) {
 			this.algorithm = new Algorithm3().getClass();
 		}
+
+		this.numPorts = Integer.parseInt(cmd.getOptionValue("numPorts", DEFAULT_NUM_PORTS));
 
 		this.period = Double.parseDouble(cmd.getOptionValue("period", DEFAULT_SAMPLING_PERIOD));
 
@@ -244,6 +253,14 @@ public class Configuration {
 
 	public void setOutputFile(String outputFile) {
 		this.outputFile = outputFile;
+	}
+
+	public int getNumPorts() {
+		return numPorts;
+	}
+
+	public void setNumPorts(int numPorts) {
+		this.numPorts = numPorts;
 	}
 
 }

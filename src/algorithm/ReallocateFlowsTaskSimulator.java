@@ -52,17 +52,17 @@ public abstract class ReallocateFlowsTaskSimulator {
 		return topology;
 	}
 
-	private void setTopology() {
+	private void setTopology(int numPorts) {
 		// This method sets the topology that we are working on!
 		DeviceId device1 = new DeviceId(1);
 		DeviceId device2 = new DeviceId(2);
 		Map<DeviceId, List<PortNumber>> device1to2Map = new HashMap<DeviceId, List<PortNumber>>();
 		List<PortNumber> device1to2PortList = new ArrayList<PortNumber>();
-		device1to2PortList.add(new PortNumber(1));
-		device1to2PortList.add(new PortNumber(2));
-		device1to2PortList.add(new PortNumber(3));
-		device1to2PortList.add(new PortNumber(4));
-		device1to2PortList.add(new PortNumber(5));
+
+		for (int i = 0; i < numPorts; i++) {
+			device1to2PortList.add(new PortNumber(i));
+		}
+
 		device1to2Map.put(device2, device1to2PortList);
 
 		topology.put(device1, device1to2Map);
@@ -73,7 +73,6 @@ public abstract class ReallocateFlowsTaskSimulator {
 	}
 
 	public ReallocateFlowsTaskSimulator() {
-		setTopology();
 		// portsBytes = new HashMap<DeviceId, Map<PortNumber, Long>>();
 	}
 
@@ -82,6 +81,7 @@ public abstract class ReallocateFlowsTaskSimulator {
 		this.networkSimulator = networkSimulator;
 		this.delay = networkSimulator.getDelay();
 		this.flowRuleTimeout = networkSimulator.getDelay();
+		setTopology(networkSimulator.getNumPorts());
 		portBytesInterface = portBandwidth * delay;
 	}
 

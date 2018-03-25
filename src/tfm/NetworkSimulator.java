@@ -29,9 +29,11 @@ import auxiliar.Packet;
 
 public class NetworkSimulator {
 
+	private static final boolean DEBUG = false;
+
 	private double period; // seconds
 	private double flowRuleTimeout; // seconds
-	private static final boolean DEBUG = false;
+	private int numPorts;
 
 	private double queueSize; // seconds
 
@@ -120,6 +122,7 @@ public class NetworkSimulator {
 			return;
 		}
 		this.algorithm = ReallocateFlowsTaskSimulator.newInstance(conf.getAlgorithm());
+		this.numPorts = conf.getNumPorts();
 		this.period = conf.getPeriod();
 		this.flowRuleTimeout = conf.getFlowRuleTimeout();
 		this.startBitDstIp = conf.getStartBitDstIp();
@@ -131,6 +134,8 @@ public class NetworkSimulator {
 		this.iterationsToDiscard = conf.getIterationsToDiscard();
 		// Must be called at the end of this constructor
 		this.algorithm.init(this);
+		System.err.println("Executing simulation: " + conf.getOutputFile());
+
 	}
 
 	public void schedule() {
@@ -208,7 +213,9 @@ public class NetworkSimulator {
 				+ DecimalFormatUtils.getDecimalFormat4().format(averageConsumption * 100) + " %");
 
 		// TODO: Consider discarding this value if mustDiscard
-		numFlowMods += flowMods;
+		if (!mustDiscard) {
+			numFlowMods += flowMods;
+		}
 
 		printStream.println("Num flow mods: " + flowMods);
 		// printQueueStatistics();
@@ -240,13 +247,14 @@ public class NetworkSimulator {
 
 			accumulatedDelay += queue.getAccumulatedDelay();
 			totalPacketsToComputeDelay += queue.getNumPackets();
-			//System.out.println("[DEBUG] Port " + pn.toLong() + ":");
-			//System.out.println("[DEBUG] Accumulated delay: " + DecimalFormatUtils.getDecimalFormat4().format(accumulatedDelay * 1e6));
-			//System.out.println("[DEBUG] Num packets: " + totalPacketsToComputeDelay);			
+			// System.out.println("[DEBUG] Port " + pn.toLong() + ":");
+			// System.out.println("[DEBUG] Accumulated delay: " +
+			// DecimalFormatUtils.getDecimalFormat4().format(accumulatedDelay * 1e6));
+			// System.out.println("[DEBUG] Num packets: " + totalPacketsToComputeDelay);
 
 			accumulatedDelayLowLatency += queue.getAccumulatedDelayLowLatency();
 			totalPacketsToComputeDelayLowLatency += queue.getNumPacketsLowLatency();
-			
+
 			totalLostPackets += queue.getNumExceeded();
 			printStream.println(ps);
 		}
@@ -272,17 +280,27 @@ public class NetworkSimulator {
 		finalResult += df.format(totalLostPackets * 100.0 / totalPackets) + " ";
 		// average consumption percent
 		finalResult += df.format(averageConsumption * 100.0) + " ";
-		//
+		// average delay of the packets
 		finalResult += df.format(averageDelay * 1e6) + " ";
+		// average delay of the low-latency packets
+		if (totalPacketsToComputeDelayLowLatency > 0) {
+			finalResult += df.format(averageDelayLowLatency * 1e6) + " ";
+		}
 		// average rate in Mbps
 		finalResult += df.format(averageRate) + " ";
 		// speed of the trace
 		finalResult += df.format(speed) + " ";
+		// num ports of the bundle
+		finalResult += df.format(numPorts) + " ";
 		// total number of flow mods
 		finalResult += numFlowMods;
 		finalResult += "\n";
 
-		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps) speed flow_mods\n";
+		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps) speed numPorts flow_mods\n";
+
+		if (totalPacketsToComputeDelayLowLatency > 0) {
+			header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) avg_delay_low_latency(us) rate(Mbps) speed numPorts flow_mods\n";
+		}
 
 		if (fileToAppendFinalResults != null) {
 			// Legacy compatibility, not being used right now. Currently, only writing to
@@ -304,10 +322,13 @@ public class NetworkSimulator {
 		} else {
 			// Preferred way
 			System.out.println(header + finalResult);
+			// DEBUG
+			System.err.println(header + finalResult);
 		}
 		if (totalPacketsToComputeDelayLowLatency > 0) {
-			System.out.println("Average delay (us): " + df.format(averageDelay * 1e6));
-			System.out.println("Average delay of low-latency packets (us): " + df.format(averageDelayLowLatency * 1e6));
+			// DEBUG
+			System.err.println("Average delay (us): " + df.format(averageDelay * 1e6));
+			System.err.println("Average delay of low-latency packets (us): " + df.format(averageDelayLowLatency * 1e6));
 		}
 	}
 
@@ -529,6 +550,14 @@ public class NetworkSimulator {
 
 	public void setQueueSize(double queueSize) {
 		this.queueSize = queueSize;
+	}
+
+	public int getNumPorts() {
+		return numPorts;
+	}
+
+	public void setNumPorts(int numPorts) {
+		this.numPorts = numPorts;
 	}
 
 }
