@@ -159,7 +159,7 @@ public class NetworkSimulator {
 			totalPortStatistics.get(deviceId).put(pn,
 					new PortStatistics(
 							FileNameUtils.generateOutputFileName(algorithm.getClass(), inputFile, period,
-									flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed),
+									flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed, numPorts),
 							pn, period, PORT_BANDWIDTH, queueSize));
 		}
 	}

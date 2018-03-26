@@ -6,6 +6,9 @@
 	<version>0.1-SNAPSHOT</version>
 	<name>SDN Bundle Network Simulator</name>
 	<description>SDN Bundle Network Simulator</description>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
 	<dependencies>
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
 		<dependency>

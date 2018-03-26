@@ -158,7 +158,7 @@ public class Configuration {
 	 */
 	public void init() {
 		outputFile = FileNameUtils.BASE_PATH + FileNameUtils.generateOutputFileName(algorithm, inputFile, period,
-				flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed);
+				flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed, numPorts);
 		try {
 			printStream = new PrintStream(new FileOutputStream(outputFile));
 		} catch (FileNotFoundException e) {
