@@ -29,28 +29,28 @@ Flows are defined as a bitmask on the destination IP address.
 ## Execution
 
     usage: java -jar target/sdn-bundle-simulator-0.1-SNAPSHOT-jar-with-dependencies.jar
-	   [-a <ALGORITHM>] [-e <BIT>] [-f <TIMEOUT>] [-h] -i <INPUT> [-n <PORTS>]
-	   [-p <PERIOD>] [-q <SIZE>] [-s <BIT>] [-x <SPEED>]
+    	   [-a <ALGORITHM>] [-e <BIT>] [-f <TIMEOUT>] [-h] -i <INPUT> [-n <PORTS>]
+    	   [-p <PERIOD>] [-q <SIZE>] [-s <BIT>] [-x <SPEED>]
      -a,--algorithm <ALGORITHM>       Specifies the algorithm. Available
-                                  algorithms: 0, 1, 2 or 3 [default: 3].
+                                      algorithms: 0, 1, 2 or 3 [default: 3].
      -e,--endBitDstIp <BIT>           Specifies the last bit of the
-                                  destination IP address that will be used
-                                  to define the flows [default: 8].
+                                      destination IP address that will be used
+                                      to define the flows [default: 8].
      -f,--flowRuleTimeout <TIMEOUT>   Specifies flow rule timeout (seconds)
-                                  [default: 30].
+                                      [default: 30].
      -h,--help                        Shows this help menu.
      -i,--input <INPUT>               Specifies the input file.
      -n,--numPorts <PORTS>            Specifies the number of ports. [default:
-                                  5].
+                                      5].
      -p,--period <PERIOD>             Specifies flow sampling period (seconds)
-                                  [default: 0.5].
+                                      [default: 0.5].
      -q,--queueSize <SIZE>            Specifies the size of the queue of each
-                                  port (seconds) [default: 0.01].
+                                      port (seconds) [default: 0.01].
      -s,--startBitDstIp <BIT>         Specifies the first bit of the
-                                  destination IP address that will be used
-                                  to define the flows [default: 0].
+                                      destination IP address that will be used
+                                      to define the flows [default: 0].
      -x,--speed <SPEED>               Specifies the relative speed of the
-                                  trace [default: 1].
+                                      trace [default: 1].
 
 ## Results
 
