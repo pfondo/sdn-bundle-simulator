@@ -2,6 +2,7 @@ package tfm;
 
 import java.io.File;
 
+import conf.Configuration;
 import utils.FileNameUtils;
 
 public class MainClass {

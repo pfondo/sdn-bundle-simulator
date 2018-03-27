@@ -10,17 +10,16 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.DecimalFormat;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
-import java.util.TreeSet;
 
 import algorithm.PortStatistics;
 import algorithm.BaseAlgorithm;
 import auxiliar.PortNumber;
 import auxiliar.Queue;
+import conf.Configuration;
 import utils.DecimalFormatUtils;
 import utils.FileNameUtils;
 import auxiliar.DeviceId;

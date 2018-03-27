@@ -1,8 +1,10 @@
-package tfm;
+package conf;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -13,7 +15,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import algorithm.*;
-import algorithm.BaseAlgorithm;
 import utils.FileNameUtils;
 
 public class Configuration {
@@ -50,6 +51,38 @@ public class Configuration {
 		init();
 	}
 
+	/**
+	 * Returns a mapping from command line algorithm argument value to algorithm
+	 * Class.
+	 * 
+	 * @return
+	 */
+	public Map<String, Class<? extends BaseAlgorithm>> getAlgorithmsAvailable() {
+		Map<String, Class<? extends BaseAlgorithm>> algorithmsAvailable = new HashMap<String, Class<? extends BaseAlgorithm>>();
+		algorithmsAvailable.put("0", Algorithm0.class);
+		algorithmsAvailable.put("1", Algorithm1.class);
+		algorithmsAvailable.put("2", Algorithm2.class);
+		algorithmsAvailable.put("3", Algorithm3.class);
+		// TODO: Include here your custom algorithm (e.g., algorithmsAvailable.put("X",
+		// AlgorithmX.class);)
+
+		return algorithmsAvailable;
+	}
+
+	/**
+	 * Parses the algorithm command line option, setting the algorithm class
+	 * accordingly.
+	 * 
+	 * @param algorithm
+	 *            Algorithm command line value
+	 */
+	public void parseAlgorithmOption(String algorithm) {
+
+		if (getAlgorithmsAvailable().containsKey(algorithm)) {
+			this.algorithm = getAlgorithmsAvailable().get(algorithm);
+		}
+	}
+
 	public void parse(String args[]) {
 		Options options = new Options();
 
@@ -58,8 +91,8 @@ public class Configuration {
 		inputFileOption.setArgName("INPUT");
 		options.addOption(inputFileOption);
 
-		Option algorithmOption = new Option("a", "algorithm", true,
-				"Specifies the algorithm. Available algorithms: 0, 1, 2 or 3 [default: 3].");
+		Option algorithmOption = new Option("a", "algorithm", true, "Specifies the algorithm. Available algorithms: "
+				+ String.join(", ", getAlgorithmsAvailable().keySet()) + " [default: 3].");
 		algorithmOption.setRequired(false);
 		algorithmOption.setArgName("ALGORITHM");
 		options.addOption(algorithmOption);
@@ -128,15 +161,8 @@ public class Configuration {
 		this.inputFile = cmd.getOptionValue("input", DEFAULT_INPUT_FILE);
 
 		String algorithm = cmd.getOptionValue("algorithm", DEFAULT_ALGORITHM);
-		if (algorithm.equals("0")) {
-			this.algorithm = new Algorithm0().getClass();
-		} else if (algorithm.equals("1")) {
-			this.algorithm = new Algorithm1().getClass();
-		} else if (algorithm.equals("2")) {
-			this.algorithm = new Algorithm2().getClass();
-		} else if (algorithm.equals("3")) {
-			this.algorithm = new Algorithm3().getClass();
-		}
+
+		parseAlgorithmOption(algorithm);
 
 		this.numPorts = Integer.parseInt(cmd.getOptionValue("numPorts", DEFAULT_NUM_PORTS));
 

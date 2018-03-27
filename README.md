@@ -57,6 +57,17 @@ Flows are defined as a bitmask on the destination IP address.
 - A "results" folder is created to store the detailed results of the simulation.
 - Besides, a "packets" folder is created to store the packets transmitted by each port, of this simulation.
 
+## Adding an algorithm
+
+Adding a new algorithm to the simulator is simple. These are the main steps that should be followed:
+
+1. Create your own class, say `AlgorithmX`, extending the `algorithm.BaseAlgorithm` abstract class. There are several examples in the algorithm package (e.g., `algorithm.Algorithm0`).
+- Implement the `Map<FlowEntry, PortNumber> computeAllocation(Map<FlowEntry, Long> flowMap, Set<PortNumber> linkPorts)` method in `AlgorithmX` using your own flow allocation logic.
+- If you wish, you can also find interesting implementing the following methods in `AlgorithmX` overwriting the default implementation: `double getPortBytesAvailable(long numFlows)`, `PortNumber selectOutputPort(DeviceId src, DeviceId dst)` and `PortNumber selectOutputPortLowLatency(DeviceId src, DeviceId dstDevice)`.
+- If you wish, you can also modify how the expected number of bytes that each flow will transmit in the next interval are calculated, modifying the `algorithm.FlowBytesHistory` class.
+- In the `Map<String, Class<? extends BaseAlgorithm>> getAlgorithmsAvailable()` method of the `conf.Configuration` class, add a line to include your algorithm among the algorithms available (e.g., `algorithmsAvailable.put("X", AlgorithmX.class);`).
+- Then you can run the simulator using the `--algorithm X` argument.
+
 ## Copyright
 
 Copyright ⓒ 2017–2018 Pablo Fondo Ferreiro <pfondo@det.uvigo.es>.
