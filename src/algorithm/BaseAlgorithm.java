@@ -16,7 +16,7 @@ import auxiliar.Logger;
 import auxiliar.PortNumber;
 import tfm.NetworkSimulator;
 
-public abstract class ReallocateFlowsTaskSimulator {
+public abstract class BaseAlgorithm {
 
 	public final static boolean DEBUG = false;
 
@@ -33,6 +33,19 @@ public abstract class ReallocateFlowsTaskSimulator {
 	protected NetworkSimulator networkSimulator;
 
 	private Map<DeviceId, Map<DeviceId, List<PortNumber>>> topology = new HashMap<DeviceId, Map<DeviceId, List<PortNumber>>>();
+
+	/**
+	 * Reallocates the current set of flows in the ports of the bundle.
+	 * 
+	 * @param flowMap
+	 *            Map which contains the current set of flows with their respective
+	 *            expected number of bytes transmitted in the following interval.
+	 * @param linkPorts
+	 *            The set of ports of the bundle.
+	 * @return The new allocation of the flows to be used during the next interval.
+	 */
+	protected abstract Map<FlowEntry, PortNumber> computeAllocation(Map<FlowEntry, Long> flowMap,
+			Set<PortNumber> linkPorts);
 
 	/**
 	 * Computes the number of bytes available on each port of the aggregation to be
@@ -72,7 +85,7 @@ public abstract class ReallocateFlowsTaskSimulator {
 		return getTopology().get(deviceId);
 	}
 
-	public ReallocateFlowsTaskSimulator() {
+	public BaseAlgorithm() {
 		// portsBytes = new HashMap<DeviceId, Map<PortNumber, Long>>();
 	}
 
@@ -85,9 +98,8 @@ public abstract class ReallocateFlowsTaskSimulator {
 		portBytesInterface = portBandwidth * delay;
 	}
 
-	public static ReallocateFlowsTaskSimulator newInstance(
-			Class<? extends ReallocateFlowsTaskSimulator> algorithmType) {
-		ReallocateFlowsTaskSimulator instance = null;
+	public static BaseAlgorithm newInstance(Class<? extends BaseAlgorithm> algorithmType) {
+		BaseAlgorithm instance = null;
 		try {
 			instance = algorithmType.newInstance();
 		} catch (InstantiationException e) {
@@ -142,9 +154,6 @@ public abstract class ReallocateFlowsTaskSimulator {
 		}
 		// networkSimulator.printFinalQueueStatistics();
 	}
-
-	protected abstract Map<FlowEntry, PortNumber> computeAllocation(Map<FlowEntry, Long> flowMap,
-			Set<PortNumber> linkPorts);
 
 	// In legacy: Task extends Thread.
 	class Task {
@@ -229,6 +238,63 @@ public abstract class ReallocateFlowsTaskSimulator {
 			printFinalStatistics();
 		}
 
+	}
+
+	/**
+	 * Selects the output port to allocate a new flow between src and dst devices.
+	 * Default implementation: Returns a random port.
+	 * 
+	 * @param src
+	 *            Source device id
+	 * @param dst
+	 *            Destination device id
+	 * @return The port where this flow must be allocated.
+	 */
+	public PortNumber selectOutputPort(DeviceId src, DeviceId dst) {
+
+		PortNumber portNumber = null;
+		if (dst != null) {
+			Set<PortNumber> aggregation = new TreeSet<PortNumber>(new Comparator<PortNumber>() {
+
+				@Override
+				public int compare(PortNumber o1, PortNumber o2) {
+					return (int) Math.signum(o1.toLong() - o2.toLong());
+				}
+
+			});
+			for (PortNumber pn : getLinkPorts(src, dst)) {
+				aggregation.add(pn);
+			}
+			int selected = (int) (aggregation.size() * Math.random());
+			portNumber = (PortNumber) aggregation.toArray()[selected];
+		}
+		return portNumber;
+	}
+
+	/**
+	 * Selects the output port to allocate a new low-latency flow between src and
+	 * dst devices. Default implementation: Returns the port with the highest
+	 * PortNumber.
+	 * 
+	 * @param src
+	 *            Source device id
+	 * @param dst
+	 *            Destination device id
+	 * @return The port where this flow must be allocated.
+	 */
+	public PortNumber selectOutputPortLowLatency(DeviceId src, DeviceId dstDevice) {
+
+		PortNumber portNumber = null;
+		if (dstDevice != null) {
+			long maxPortNumber = 0;
+			for (PortNumber pn : getLinkPorts(src, dstDevice)) {
+				if (pn.toLong() > maxPortNumber) {
+					maxPortNumber = pn.toLong();
+					portNumber = pn;
+				}
+			}
+		}
+		return portNumber;
 	}
 
 	public void schedule() {

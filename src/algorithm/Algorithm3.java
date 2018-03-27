@@ -19,7 +19,7 @@ import auxiliar.PortNumber;
  * @author pfondo
  *
  */
-public class Algorithm3 extends ReallocateFlowsTaskSimulator {
+public class Algorithm3 extends BaseAlgorithm {
 
 	private static final double EXPECTED_LOAD_MARGIN = 0.2;
 

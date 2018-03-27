@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import algorithm.PortStatistics;
-import algorithm.ReallocateFlowsTaskSimulator;
+import algorithm.BaseAlgorithm;
 import auxiliar.PortNumber;
 import auxiliar.Queue;
 import utils.DecimalFormatUtils;
@@ -56,7 +56,7 @@ public class NetworkSimulator {
 
 	private PrintStream printStream;
 
-	private ReallocateFlowsTaskSimulator algorithm;
+	private BaseAlgorithm algorithm;
 
 	private long numFlowMods;
 
@@ -77,7 +77,7 @@ public class NetworkSimulator {
 	 * @param fileToAppendFinalResults
 	 * @param iterationsToDiscard
 	 */
-	public NetworkSimulator(Class<? extends ReallocateFlowsTaskSimulator> algorithmClass, String inputFile,
+	public NetworkSimulator(Class<? extends BaseAlgorithm> algorithmClass, String inputFile,
 			double delay, double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream,
 			double queueSize, String fileToAppendFinalResults, int iterationsToDiscard, double speed) {
 		this.inputFile = inputFile;
@@ -93,7 +93,7 @@ public class NetworkSimulator {
 			e.printStackTrace();
 			return;
 		}
-		this.algorithm = ReallocateFlowsTaskSimulator.newInstance(algorithmClass);
+		this.algorithm = BaseAlgorithm.newInstance(algorithmClass);
 		this.period = delay;
 		this.flowRuleTimeout = flowRuleTimeout;
 		this.startBitDstIp = startBitDstIp;
@@ -121,7 +121,7 @@ public class NetworkSimulator {
 			e.printStackTrace();
 			return;
 		}
-		this.algorithm = ReallocateFlowsTaskSimulator.newInstance(conf.getAlgorithm());
+		this.algorithm = BaseAlgorithm.newInstance(conf.getAlgorithm());
 		this.numPorts = conf.getNumPorts();
 		this.period = conf.getPeriod();
 		this.flowRuleTimeout = conf.getFlowRuleTimeout();
@@ -212,7 +212,7 @@ public class NetworkSimulator {
 		printStream.println("Average consumption: "
 				+ DecimalFormatUtils.getDecimalFormat4().format(averageConsumption * 100) + " %");
 
-		// TODO: Consider discarding this value if mustDiscard
+		// Now: Discarding flowMods of this interval if this interval must be discarded
 		if (!mustDiscard) {
 			numFlowMods += flowMods;
 		}
@@ -447,11 +447,11 @@ public class NetworkSimulator {
 		} else {
 			// No present in the last poll: Allocate new port
 			if (isLowLatency) {
-				matchFlow = new FlowEntry(id, selectOutputPortLowLatency(new DeviceId(1), new DeviceId(2)), bytes, time,
-						time, isLowLatency);
+				matchFlow = new FlowEntry(id, algorithm.selectOutputPortLowLatency(new DeviceId(1), new DeviceId(2)),
+						bytes, time, time, isLowLatency);
 			} else {
-				matchFlow = new FlowEntry(id, selectOutputPort(new DeviceId(1), new DeviceId(2)), bytes, time, time,
-						isLowLatency);
+				matchFlow = new FlowEntry(id, algorithm.selectOutputPort(new DeviceId(1), new DeviceId(2)), bytes, time,
+						time, isLowLatency);
 			}
 			currentFlows.put(id, matchFlow);
 		}
@@ -472,44 +472,6 @@ public class NetworkSimulator {
 			s.nextLine();
 		}
 		return 0;
-	}
-
-	// Returns a random port
-	private PortNumber selectOutputPort(DeviceId src, DeviceId dstDevice) {
-
-		PortNumber portNumber = null;
-		if (dstDevice != null) {
-			Set<PortNumber> aggregation = new TreeSet<PortNumber>(new Comparator<PortNumber>() {
-
-				@Override
-				public int compare(PortNumber o1, PortNumber o2) {
-					return (int) Math.signum(o1.toLong() - o2.toLong());
-				}
-
-			});
-			for (PortNumber pn : algorithm.getLinkPorts(src, dstDevice)) {
-				aggregation.add(pn);
-			}
-			int selected = (int) (aggregation.size() * Math.random());
-			portNumber = (PortNumber) aggregation.toArray()[selected];
-		}
-		return portNumber;
-	}
-
-	// Returns the highest port number
-	private PortNumber selectOutputPortLowLatency(DeviceId src, DeviceId dstDevice) {
-
-		PortNumber portNumber = null;
-		if (dstDevice != null) {
-			long maxPortNumber = 0;
-			for (PortNumber pn : algorithm.getLinkPorts(src, dstDevice)) {
-				if (pn.toLong() > maxPortNumber) {
-					maxPortNumber = pn.toLong();
-					portNumber = pn;
-				}
-			}
-		}
-		return portNumber;
 	}
 
 	public boolean isFinished() {

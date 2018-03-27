@@ -13,7 +13,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import algorithm.*;
-import algorithm.ReallocateFlowsTaskSimulator;
+import algorithm.BaseAlgorithm;
 import utils.FileNameUtils;
 
 public class Configuration {
@@ -34,7 +34,7 @@ public class Configuration {
 
 	// Configurable parameters
 	private String inputFile;
-	private Class<? extends ReallocateFlowsTaskSimulator> algorithm = new Algorithm3().getClass();
+	private Class<? extends BaseAlgorithm> algorithm = new Algorithm3().getClass();
 	private int numPorts;
 	private double period;
 	private double flowRuleTimeout;
@@ -191,11 +191,11 @@ public class Configuration {
 		this.inputFile = inputFile;
 	}
 
-	public Class<? extends ReallocateFlowsTaskSimulator> getAlgorithm() {
+	public Class<? extends BaseAlgorithm> getAlgorithm() {
 		return algorithm;
 	}
 
-	public void setAlgorithm(Class<? extends ReallocateFlowsTaskSimulator> algorithm) {
+	public void setAlgorithm(Class<? extends BaseAlgorithm> algorithm) {
 		this.algorithm = algorithm;
 	}
 

@@ -19,7 +19,7 @@ import auxiliar.PortNumber;
  * @author pfondo
  *
  */
-public class Algorithm2 extends ReallocateFlowsTaskSimulator {
+public class Algorithm2 extends BaseAlgorithm {
 
 	@Override
 	protected double getPortBytesAvailable(long numFlows) {

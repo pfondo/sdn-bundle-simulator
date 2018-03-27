@@ -19,7 +19,7 @@ import auxiliar.PortNumber;
  * @author pfondo
  *
  */
-public class Algorithm0 extends ReallocateFlowsTaskSimulator {
+public class Algorithm0 extends BaseAlgorithm {
 
 	public Map<FlowEntry, PortNumber> computeAllocation(Map<FlowEntry, Long> flowMap, Set<PortNumber> linkPorts) {
 		Map<FlowEntry, PortNumber> flowAllocation = new HashMap<FlowEntry, PortNumber>();

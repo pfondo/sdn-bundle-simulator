@@ -2,7 +2,7 @@ package utils;
 
 import java.text.DecimalFormat;
 
-import algorithm.ReallocateFlowsTaskSimulator;
+import algorithm.BaseAlgorithm;
 
 public class FileNameUtils {
 	public final static String FOLDER_SEPARATOR = "/";
@@ -10,7 +10,7 @@ public class FileNameUtils {
 	public final static String PACKETS_PATH = "packets/";
 	public final static String LOW_LATENCY_INDEX_FILE_SUFIX = "_low_latency_index.txt";
 
-	public static String generateOutputFileName(Class<? extends ReallocateFlowsTaskSimulator> algorithm,
+	public static String generateOutputFileName(Class<? extends BaseAlgorithm> algorithm,
 			String inputFile, double samplingPeriod, double flowRuleTimeout, int startBitDstIp, int endBitDstIp,
 			double queue, double speed, int numPorts) {
 		String toReturn = "";

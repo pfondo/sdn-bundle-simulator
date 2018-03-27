@@ -20,7 +20,7 @@ import auxiliar.PortNumber;
  * @author pfondo
  *
  */
-public class Algorithm1 extends ReallocateFlowsTaskSimulator {
+public class Algorithm1 extends BaseAlgorithm {
 
 	@Override
 	public Map<FlowEntry, PortNumber> computeAllocation(Map<FlowEntry, Long> flowMap, Set<PortNumber> linkPorts) {
