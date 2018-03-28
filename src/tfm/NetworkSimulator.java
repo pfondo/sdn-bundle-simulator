@@ -59,6 +59,8 @@ public class NetworkSimulator {
 
 	private long numFlowMods;
 
+	private double lastArrivalTimestamp = 0;
+
 	private Map<DeviceId, Map<PortNumber, PortStatistics>> totalPortStatistics;
 
 	/**
@@ -76,9 +78,9 @@ public class NetworkSimulator {
 	 * @param fileToAppendFinalResults
 	 * @param iterationsToDiscard
 	 */
-	public NetworkSimulator(Class<? extends BaseAlgorithm> algorithmClass, String inputFile,
-			double delay, double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream,
-			double queueSize, String fileToAppendFinalResults, int iterationsToDiscard, double speed) {
+	public NetworkSimulator(Class<? extends BaseAlgorithm> algorithmClass, String inputFile, double delay,
+			double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream, double queueSize,
+			String fileToAppendFinalResults, int iterationsToDiscard, double speed) {
 		this.inputFile = inputFile;
 		iteration = 0;
 		finished = false;
@@ -221,28 +223,41 @@ public class NetworkSimulator {
 	}
 
 	public void printFinalPortStatistics(DeviceId deviceId, Set<PortNumber> portList, double PORT_BANDWIDTH) {
-		double averageConsumption = 0;
+		double accumulatedConsumptionModel = 0;
+
+		double accumulatedConsumptionReal = 0;
+
 		double averageRate = 0;
+
 		double totalLostPackets = 0;
 		double totalPackets = 0;
+
 		double accumulatedDelay = 0;
 		long totalPacketsToComputeDelay = 0;
+
 		double accumulatedDelayLowLatency = 0;
 		long totalPacketsToComputeDelayLowLatency = 0;
+
 		for (PortNumber pn : portList) {
 			PortStatistics ps = totalPortStatistics.get(deviceId).get(pn);
 			// Set current time of the simulation
 			ps.setTime(getCurrentTime() - (period * iterationsToDiscard));
 			totalPackets += ps.getNumPackets();
-			averageConsumption += ps.getEnergyConsumption(false);
+			accumulatedConsumptionModel += ps.getEnergyConsumption(false);
 			averageRate += ps.getRate(false);
 
 			// Update queue of this port to the final instant
 			Queue queue = totalPortStatistics.get(deviceId).get(pn).getQueue();
-			queue.update(period * iteration + queueSize);
-
+			queue.update(getCurrentTime() + queueSize); // Enough time to transmit all the queued packets
 			// Do final processing in queue
-			queue.finishQueue();
+			queue.finishQueue(getCurrentTime());
+
+			// The following two lines are deprecated
+			// double idleFraction = queue.getIdleTime() / (lastArrivalTimestamp - period *
+			// iterationsToDiscard);
+			// double portRealConsumption = idleFraction * 0.1 + (1 - idleFraction) * 1;
+
+			accumulatedConsumptionReal += ps.getRealEnergyConsumption(false);
 
 			accumulatedDelay += queue.getAccumulatedDelay();
 			totalPacketsToComputeDelay += queue.getNumPackets();
@@ -257,13 +272,16 @@ public class NetworkSimulator {
 			totalLostPackets += queue.getNumExceeded();
 			printStream.println(ps);
 		}
-		averageConsumption /= portList.size();
+
+		double averageConsumptionModel = accumulatedConsumptionModel / portList.size();
+		double averageConsumptionReal = accumulatedConsumptionReal / portList.size();
 		double averageDelay = accumulatedDelay / totalPacketsToComputeDelay;
 		double averageDelayLowLatency = accumulatedDelayLowLatency / totalPacketsToComputeDelayLowLatency;
 
 		DecimalFormat df = DecimalFormatUtils.getDecimalFormat4();
 
-		printStream.println("Average consumption: " + df.format(averageConsumption * 100.0) + " %");
+		printStream.println("Average consumption (model): " + df.format(averageConsumptionModel * 100.0) + " %");
+		printStream.println("Average consumption (real): " + df.format(averageConsumptionReal * 100.0) + " %");
 		printStream.println("Total loss percent: " + df.format(totalLostPackets * 100.0 / totalPackets) + " %");
 		// Print num flow mods
 		printStream.println("Num flow mods: " + numFlowMods);
@@ -278,7 +296,7 @@ public class NetworkSimulator {
 		// total loss percent
 		finalResult += df.format(totalLostPackets * 100.0 / totalPackets) + " ";
 		// average consumption percent
-		finalResult += df.format(averageConsumption * 100.0) + " ";
+		finalResult += df.format(averageConsumptionModel * 100.0) + " ";
 		// average delay of the packets
 		finalResult += df.format(averageDelay * 1e6) + " ";
 		// average delay of the low-latency packets
@@ -292,13 +310,15 @@ public class NetworkSimulator {
 		// num ports of the bundle
 		finalResult += df.format(numPorts) + " ";
 		// total number of flow mods
-		finalResult += numFlowMods;
+		finalResult += numFlowMods + " ";
+		// Real energy consumption
+		finalResult += df.format(averageConsumptionReal * 100.0) + " ";
 		finalResult += "\n";
 
-		String header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) rate(Mbps) speed numPorts flow_mods\n";
+		String header = "# file algorithm period(s) bits buffer(ms) loss(%) model_energy(%) avg_delay(us) rate(Mbps) speed numPorts flow_mods real_energy(%)\n";
 
 		if (totalPacketsToComputeDelayLowLatency > 0) {
-			header = "# file algorithm period(s) bits buffer(ms) loss(%) energy(%) avg_delay(us) avg_delay_low_latency(us) rate(Mbps) speed numPorts flow_mods\n";
+			header = "# file algorithm period(s) bits buffer(ms) loss(%) model_energy(%) avg_delay(us) avg_delay_low_latency(us) rate(Mbps) speed numPorts flow_mods real_energy(%)\n";
 		}
 
 		if (fileToAppendFinalResults != null) {
@@ -387,7 +407,9 @@ public class NetworkSimulator {
 	}
 
 	public double getCurrentTime() {
-		return iteration * period;
+		// double currentTime = iteration * period;
+		double currentTime = lastArrivalTimestamp;
+		return currentTime;
 	}
 
 	/**
@@ -436,6 +458,8 @@ public class NetworkSimulator {
 		}
 
 		// Do the processing
+		lastArrivalTimestamp = time;
+
 		String id = computeId(sip, dip, isLowLatency);
 		FlowEntry matchFlow = null;
 		if (currentFlows.containsKey(id)) {

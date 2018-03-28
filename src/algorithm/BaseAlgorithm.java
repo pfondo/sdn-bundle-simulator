@@ -73,7 +73,7 @@ public abstract class BaseAlgorithm {
 		List<PortNumber> device1to2PortList = new ArrayList<PortNumber>();
 
 		for (int i = 0; i < numPorts; i++) {
-			device1to2PortList.add(new PortNumber(i));
+			device1to2PortList.add(new PortNumber(i + 1));
 		}
 
 		device1to2Map.put(device2, device1to2PortList);

@@ -8,7 +8,7 @@ import utils.FileNameUtils;
 public class MainClass {
 
 	public static void main(String[] args) {
-		// Create directory if does not already exist
+		// Create directory if does not exist yet
 		File directory = new File(FileNameUtils.BASE_PATH);
 		if (!directory.exists()) {
 			directory.mkdir();

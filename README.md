@@ -16,7 +16,7 @@ Flows are defined as a bitmask on the destination IP address.
 * Modify the speed of the trace being evaluated.
 * Calculate the average binary rate of the trace.
 * Calculate the average delay of the packets.
-* Calculate the number of flow modifications performed by our algorithm.
+* Calculate the number of flow modifications performed by the algorithm.
 * Calculate the average consumption of the device.
 * Calculate the packet loss.
 

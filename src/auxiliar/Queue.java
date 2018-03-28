@@ -18,10 +18,8 @@ import utils.FileNameUtils;
  *
  */
 public class Queue {
-	public final static boolean DEBUG = false;
-	public final static boolean PRINT_PACKETS = true;
-
-	public double queueSize; // delay in seconds
+	public static final boolean DEBUG = false;
+	private static final boolean PRINT_PACKETS = false;
 
 	/**
 	 * Drop packets that exceed the threshold.
@@ -32,6 +30,8 @@ public class Queue {
 	 * Never drop packets.
 	 */
 	public final static int POLICY_HOLD = 1;
+
+	private double queueSize; // delay in seconds
 
 	private List<Packet> list;
 	private double lastTransmittedTimestamp;
@@ -56,6 +56,7 @@ public class Queue {
 
 	// Experimental
 	private long packetCount;
+	private double idleTime; // Time in seconds that the port has been idle
 
 	public Queue(String subFolder, String portName, double queueSize) {
 		this.list = new ArrayList<Packet>();
@@ -70,23 +71,22 @@ public class Queue {
 		this.policy = POLICY_DROP;
 		this.queueSize = queueSize;
 		this.packetCount = 0;
-		// Ensure the folder exists and it is empty
-		File directory = new File(FileNameUtils.PACKETS_PATH + subFolder);
-		fileName = FileNameUtils.PACKETS_PATH + subFolder + FileNameUtils.FOLDER_SEPARATOR + portName;
-		lowLatencyIndexFileName = FileNameUtils.PACKETS_PATH + subFolder + FileNameUtils.FOLDER_SEPARATOR + portName
-				+ FileNameUtils.LOW_LATENCY_INDEX_FILE_SUFIX;
-		if (!directory.exists()) {
-			directory.mkdirs();
-		} else {
-			removeQueueFile();
-			removeLowLatencyIndexFile();
-		}
-		initWriters();
-	}
+		this.setIdleTime(0);
 
-	public void emptyQueue() {
-		lastTransmittedTimestamp = 0;
-		list.clear();
+		if (PRINT_PACKETS) {
+			// Ensure the folder exists and it is empty
+			File directory = new File(FileNameUtils.PACKETS_PATH + subFolder);
+			fileName = FileNameUtils.PACKETS_PATH + subFolder + FileNameUtils.FOLDER_SEPARATOR + portName;
+			lowLatencyIndexFileName = FileNameUtils.PACKETS_PATH + subFolder + FileNameUtils.FOLDER_SEPARATOR + portName
+					+ FileNameUtils.LOW_LATENCY_INDEX_FILE_SUFIX;
+			if (!directory.exists()) {
+				directory.mkdirs();
+			} else {
+				removeQueueFile();
+				removeLowLatencyIndexFile();
+			}
+			initWriters();
+		}
 	}
 
 	private void initWriters() {
@@ -102,7 +102,23 @@ public class Queue {
 		}
 	}
 
-	public void finishQueue() {
+	public void finishQueue(double currentTime) {
+		// Updated final idle time
+		if (isEmpty()) {
+			double currentIdleTime;
+			if (lastTransmittedTimestamp > 0) {
+				currentIdleTime = Math.max(currentTime - (lastTransmittedTimestamp + EnergyConsumptionUtils.T_S), 0);
+			} else {
+				currentIdleTime = Math.max(currentTime - referenceTimestamp, 0);
+			}
+			setIdleTime(getIdleTime() + currentIdleTime);
+		}
+		if (PRINT_PACKETS) {
+			closeWriters();
+		}
+	}
+
+	private void closeWriters() {
 		try {
 			writer.close();
 		} catch (IOException e) {
@@ -130,10 +146,13 @@ public class Queue {
 	}
 
 	public void queueDiscardPrevious(double referenceTimestamp) {
-		finishQueue();
-		removeQueueFile();
-		removeLowLatencyIndexFile();
-		initWriters();
+		if (PRINT_PACKETS) {
+			closeWriters();
+			removeQueueFile();
+			removeLowLatencyIndexFile();
+			initWriters();
+		}
+		cleanIdleTime();
 		emptyQueue();
 		this.referenceTimestamp = referenceTimestamp;
 	}
@@ -143,6 +162,15 @@ public class Queue {
 		cleanDelay();
 		cleanPacketCount();
 		queueDiscardPrevious(referenceTimestamp);
+	}
+
+	public void emptyQueue() {
+		lastTransmittedTimestamp = 0;
+		list.clear();
+	}
+
+	public void cleanIdleTime() {
+		setIdleTime(0);
 	}
 
 	public void cleanPacketCount() {
@@ -212,7 +240,7 @@ public class Queue {
 		} else {
 			list.add(packet);
 			if (PRINT_PACKETS) {
-				// Print to file of this port! (to be later processed by Miguel HystEEE
+				// Print to file of this port! (to be later processed by Miguel's HystEEE
 				// simulator (https://github.com/migrax/HystEEE))
 				if (packet.getQueueArrivalTimestamp() - referenceTimestamp >= 0) {
 					String toPrint = DecimalFormatUtils.getDecimalFormat9().format(
@@ -237,12 +265,23 @@ public class Queue {
 	public void update(double currentTimestamp) {
 		while (!isEmpty()) {
 			if (list.get(0).getQueueArrivalTimestamp() > lastTransmittedTimestamp || lastTransmittedTimestamp == 0) {
-				// TODO: Working here! Experimental T_W
+				// TODO: Working here!
 				double sleep_time_compensation = 0;
 				if (lastTransmittedTimestamp > 0) {
 					double timeSinceLastTransmissionEnded = list.get(0).getQueueArrivalTimestamp()
 							- lastTransmittedTimestamp;
-					sleep_time_compensation = Math.max(EnergyConsumptionUtils.T_S - timeSinceLastTransmissionEnded, 0);
+					double currentIdleTime = timeSinceLastTransmissionEnded - EnergyConsumptionUtils.T_S;
+					if (currentIdleTime > 0) {
+						setIdleTime(getIdleTime() + currentIdleTime);
+					} else {
+						sleep_time_compensation = -currentIdleTime;
+					}
+					// sleep_time_compensation = Math.max(EnergyConsumptionUtils.T_S -
+					// timeSinceLastTransmissionEnded, 0);
+
+				} else {
+					double currentIdleTime = (list.get(0).getQueueArrivalTimestamp() - referenceTimestamp);
+					setIdleTime(getIdleTime() + currentIdleTime);
 				}
 				lastTransmittedTimestamp = sleep_time_compensation + list.get(0).getQueueArrivalTimestamp()
 						+ EnergyConsumptionUtils.T_W;
@@ -301,6 +340,14 @@ public class Queue {
 
 	public void setNumPacketsLowLatency(long numPacketsLowLatency) {
 		this.numPacketsLowLatency = numPacketsLowLatency;
+	}
+
+	public double getIdleTime() {
+		return idleTime;
+	}
+
+	public void setIdleTime(double idleTime) {
+		this.idleTime = idleTime;
 	}
 
 }

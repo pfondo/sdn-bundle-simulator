@@ -22,6 +22,8 @@ public class PortStatistics {
 	private long bytesInterval;
 	private double lossPacketPercent;
 	private double energyConsumption; // In parts per unit
+	private double idleTime; // In seconds
+	private double realEnergyConsumption; // In parts per unit
 	private List<Double> energyConsumptions;
 	private Queue queue;
 
@@ -40,6 +42,7 @@ public class PortStatistics {
 		this.numFlowsInterval = 0;
 		this.numPacketsInterval = 0;
 		this.lossPacketPercent = 0;
+		this.realEnergyConsumption = 0;
 		this.bytesInterval = 0;
 		this.numPackets = 0;
 		this.energyConsumptions = new ArrayList<Double>();
@@ -199,8 +202,36 @@ public class PortStatistics {
 	private void discardPreviousIntervals(double timestamp) {
 		numPackets = 0;
 		bytes = 0;
+		idleTime = 0;
 		energyConsumptions.clear();
 		queue.clean(timestamp);
+	}
+
+	public double getRealEnergyConsumption(boolean isInterval) {
+		setRealEnergyConsumption(isInterval);
+		return realEnergyConsumption;
+	}
+
+	public void setRealEnergyConsumption(boolean isInterval) {
+		if (isInterval) {
+			double idleFraction = (getIdleTimeFromQueue() - getIdleTime()) / time;
+			this.realEnergyConsumption = idleFraction * 0.1 + (1 - idleFraction) * 1;
+		} else {
+			double idleFraction = getIdleTimeFromQueue() / time;
+			this.realEnergyConsumption = idleFraction * 0.1 + (1 - idleFraction) * 1;
+		}
+	}
+
+	public double getIdleTimeFromQueue() {
+		return queue.getIdleTime();
+	}
+
+	public double getIdleTime() {
+		return idleTime;
+	}
+
+	public void setIdleTime(double idleTime) {
+		this.idleTime = idleTime;
 	}
 
 	public String toStringInterval() {
@@ -212,7 +243,8 @@ public class PortStatistics {
 		toReturn += getNumFlowsInterval() + " flows; ";
 		toReturn += getNumPacketsInterval() + " packets; ";
 		toReturn += "pho: " + df.format(getOccupation(isInterval) * 100.0) + "%; ";
-		toReturn += "E_c: " + df.format(getEnergyConsumption(isInterval) * 100.0) + "%; ";
+		toReturn += "E_cModel: " + df.format(getEnergyConsumption(isInterval) * 100.0) + "%; ";
+		toReturn += "E_cReal: " + df.format(getRealEnergyConsumption(isInterval) * 100.0) + "%; ";
 		toReturn += "lostPackets: " + queue.getNumExceeded() + "; ";
 		toReturn += "lossPacketsPercent: " + df.format(getLossPacketPercent(isInterval)) + "%";
 		return toReturn;
@@ -227,7 +259,8 @@ public class PortStatistics {
 		toReturn += df.format(getRate(isInterval)) + " Mbps; ";
 		toReturn += getNumPackets() + " packets; ";
 		toReturn += "pho: " + df.format(getOccupation(isInterval) * 100.0) + "%; ";
-		toReturn += "E_c: " + df.format(getEnergyConsumption(isInterval) * 100.0) + "%; ";
+		toReturn += "E_cModel: " + df.format(getEnergyConsumption(isInterval) * 100.0) + "%; ";
+		toReturn += "E_cReal: " + df.format(getRealEnergyConsumption(isInterval) * 100.0) + "%; ";
 		toReturn += "lostPackets: " + queue.getNumExceeded() + "; ";
 		toReturn += "lossPacketsPercent: " + df.format(getLossPacketPercent(isInterval)) + "%";
 		return toReturn;
