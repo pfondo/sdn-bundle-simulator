@@ -287,39 +287,44 @@ public class NetworkSimulator {
 		printStream.println("Num flow mods: " + numFlowMods);
 
 		String finalResult = "";
-		finalResult += inputFile + " "; // input filename
-		finalResult += algorithm.getClass().getSimpleName() + " "; // algorithm
-		finalResult += df.format(period) + " "; // sampling period in seconds
+		// input filename
+		finalResult += inputFile + " ";
+		// algorithm
+		finalResult += algorithm.getClass().getSimpleName() + " ";
+		// sampling period in seconds
+		finalResult += df.format(period) + " ";
 		// range of bits used to identify the flows
 		finalResult += startBitDstIp + "-" + endBitDstIp + " ";
-		finalResult += df.format(queueSize * 1e3) + " "; // size of the buffer in packets
+		// size of the buffer in milliseconds
+		finalResult += df.format(queueSize * 1e3) + " ";
+		// speed of the trace
+		finalResult += df.format(speed) + " ";
+		// num ports of the bundle
+		finalResult += df.format(numPorts) + " ";
+		// average rate in Mbps
+		finalResult += df.format(averageRate) + " ";
+		// total number of flow mods
+		finalResult += numFlowMods + " ";
 		// total loss percent
 		finalResult += df.format(totalLostPackets * 100.0 / totalPackets) + " ";
-		// average consumption percent
+		// model energy consumption percent
 		finalResult += df.format(averageConsumptionModel * 100.0) + " ";
+		// real energy consumption percent
+		finalResult += df.format(averageConsumptionReal * 100.0) + " ";
 		// average delay of the packets
 		finalResult += df.format(averageDelay * 1e6) + " ";
 		// average delay of the low-latency packets
 		if (totalPacketsToComputeDelayLowLatency > 0) {
 			finalResult += df.format(averageDelayLowLatency * 1e6) + " ";
 		}
-		// average rate in Mbps
-		finalResult += df.format(averageRate) + " ";
-		// speed of the trace
-		finalResult += df.format(speed) + " ";
-		// num ports of the bundle
-		finalResult += df.format(numPorts) + " ";
-		// total number of flow mods
-		finalResult += numFlowMods + " ";
-		// Real energy consumption
-		finalResult += df.format(averageConsumptionReal * 100.0) + " ";
 		finalResult += "\n";
 
-		String header = "# file algorithm period(s) bits buffer(ms) loss(%) model_energy(%) avg_delay(us) rate(Mbps) speed numPorts flow_mods real_energy(%)\n";
+		String header = "# file algorithm period(s) bits buffer(ms) speed numPorts rate(Mbps) flow_mods loss(%) model_energy(%) real_energy(%) avg_delay(us)";
 
 		if (totalPacketsToComputeDelayLowLatency > 0) {
-			header = "# file algorithm period(s) bits buffer(ms) loss(%) model_energy(%) avg_delay(us) avg_delay_low_latency(us) rate(Mbps) speed numPorts flow_mods real_energy(%)\n";
+			header += " avg_delay_low_latency(us)";
 		}
+		header += "\n";
 
 		if (fileToAppendFinalResults != null) {
 			// Legacy compatibility, not being used right now. Currently, only writing to

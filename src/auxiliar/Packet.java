@@ -10,7 +10,7 @@ public class Packet {
 	public Packet(final long bytes, final double bandwidthInterface, final double queueArrivalTimestamp,
 			final boolean isLowLatency) {
 		this.bytes = bytes;
-		// Experimental: Nanosecond precission
+		// Experimental: Nanosecond precision
 		transmissionTime = ((double) Math.round((bytes / bandwidthInterface) * 1e9) / 1e9);
 		this.queueArrivalTimestamp = queueArrivalTimestamp;
 		this.isLowLatency = isLowLatency;

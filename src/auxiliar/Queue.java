@@ -12,7 +12,8 @@ import utils.DecimalFormatUtils;
 import utils.FileNameUtils;
 
 /**
- * The queue (buffer) size is in maximum delay (in seconds) allowed!
+ * The queue (buffer) size is in maximum delay (in seconds) allowed. When the
+ * queue is full, the packets that arrive to queue are discarded.
  * 
  * @author pfondo
  *
@@ -21,16 +22,6 @@ public class Queue {
 	public static final boolean DEBUG = false;
 	private static final boolean PRINT_PACKETS = false;
 
-	/**
-	 * Drop packets that exceed the threshold.
-	 */
-	public final static int POLICY_DROP = 0;
-
-	/**
-	 * Never drop packets.
-	 */
-	public final static int POLICY_HOLD = 1;
-
 	private double queueSize; // delay in seconds
 
 	private List<Packet> list;
@@ -38,7 +29,6 @@ public class Queue {
 	private int numExceeded;
 	private int bytesExceeded;
 	private int maxPackets;
-	private int policy;
 
 	private double accumulatedDelay;
 	private long numPackets;
@@ -68,7 +58,6 @@ public class Queue {
 		this.setNumPacketsLowLatency(0);
 		this.numPackets = 0;
 		this.maxPackets = 0;
-		this.policy = POLICY_DROP;
 		this.queueSize = queueSize;
 		this.packetCount = 0;
 		this.setIdleTime(0);
@@ -234,9 +223,6 @@ public class Queue {
 		if (exceedThreshold()) {
 			numExceeded += 1;
 			bytesExceeded += packet.getBytes();
-			if (policy == POLICY_HOLD) {
-				list.add(packet);
-			}
 		} else {
 			list.add(packet);
 			if (PRINT_PACKETS) {
@@ -265,7 +251,6 @@ public class Queue {
 	public void update(double currentTimestamp) {
 		while (!isEmpty()) {
 			if (list.get(0).getQueueArrivalTimestamp() > lastTransmittedTimestamp || lastTransmittedTimestamp == 0) {
-				// TODO: Working here!
 				double sleep_time_compensation = 0;
 				if (lastTransmittedTimestamp > 0) {
 					double timeSinceLastTransmissionEnded = list.get(0).getQueueArrivalTimestamp()
