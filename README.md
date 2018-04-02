@@ -27,8 +27,8 @@ Flows are defined as a bitmask on the destination IP address.
 ## Execution
 
     usage: java -jar target/sdn-bundle-simulator-0.1-SNAPSHOT-jar-with-dependencies.jar
-    	   [-a <ALGORITHM>] [-e <BIT>] [-f <TIMEOUT>] [-h] -i <INPUT> [-n <PORTS>]
-    	   [-p <PERIOD>] [-q <SIZE>] [-s <BIT>] [-x <SPEED>]
+           [-a <ALGORITHM>] [-e <BIT>] [-f <TIMEOUT>] [-h] -i <INPUT> [-n <PORTS]
+           [-p <PERIOD>] [-q <SIZE>] [-s <BIT>] [-x <SPEED>]
      -a,--algorithm <ALGORITHM>       Specifies the algorithm. Available
                                       algorithms: 0, 1, 2 or 3 [default: 3].
      -e,--endBitDstIp <BIT>           Specifies the last bit of the
@@ -49,6 +49,19 @@ Flows are defined as a bitmask on the destination IP address.
                                       to define the flows [default: 0].
      -x,--speed <SPEED>               Specifies the relative speed of the
                                       trace [default: 1].
+
+## Input trace format
+
+Each packet will be represented in a single line with the following format:
+
+    <Timestamp (seconds)> <Source IP> <Destination IP> <Length (bytes)>
+
+Besides, comment lines are allowed, starting the line with the '#' character. An example is shown to illustrate the format:
+
+    # <Timestamp (seconds)> <Source IP> <Destination IP> <Length (bytes)>
+    0.000000 192.168.0.1 192.168.0.2 1500
+    0.100000 192.168.0.1 192.168.0.2 1000
+    1.200000 192.168.0.3 192.168.0.4 500
 
 ## Results
 
