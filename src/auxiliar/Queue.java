@@ -44,6 +44,9 @@ public class Queue {
 	private String fileName;
 	private String lowLatencyIndexFileName;
 
+	// Accumulated delay of the packets in the queue
+	double totalDelay = 0;
+
 	// Experimental
 	private long packetCount;
 	private double idleTime; // Time in seconds that the port has been idle
@@ -60,6 +63,7 @@ public class Queue {
 		this.maxPackets = 0;
 		this.queueSize = queueSize;
 		this.packetCount = 0;
+		this.totalDelay = 0;
 		this.setIdleTime(0);
 
 		if (PRINT_PACKETS) {
@@ -155,6 +159,7 @@ public class Queue {
 
 	public void emptyQueue() {
 		lastTransmittedTimestamp = 0;
+		totalDelay = 0;
 		list.clear();
 	}
 
@@ -183,10 +188,6 @@ public class Queue {
 	}
 
 	public boolean exceedThreshold() {
-		double totalDelay = 0;
-		for (Packet packet : list) {
-			totalDelay += packet.getTransmissionTime();
-		}
 		return totalDelay >= queueSize;
 	}
 
@@ -225,6 +226,7 @@ public class Queue {
 			bytesExceeded += packet.getBytes();
 		} else {
 			list.add(packet);
+			totalDelay += packet.getTransmissionTime();
 			if (PRINT_PACKETS) {
 				// Print to file of this port! (to be later processed by Miguel's HystEEE
 				// simulator (https://github.com/migrax/HystEEE))
@@ -275,18 +277,13 @@ public class Queue {
 			// the first packet in the queue will be transmitted
 			if (list.get(0).isExpired(currentTimestamp - lastTransmittedTimestamp)) {
 				// The first packet in the queue can be transmitted
-				if (DEBUG) {
-					System.out.println("[DEBUG]     lastTxTimestamp=" + lastTransmittedTimestamp);
-					System.out.println("[DEBUG]     list.size()=" + list.size());
-					System.out.println("[DEBUG]     isExpired="
-							+ list.get(0).isExpired(currentTimestamp - lastTransmittedTimestamp));
-					System.out.println("[DEBUG]     transmissionTime=" + list.get(0).getTransmissionTime());
-				}
+				Packet currentPacket = list.remove(0);
+				totalDelay -= currentPacket.getTransmissionTime();
 
 				// Experimental: Recently included transmission time!
-				double packetDelay = list.get(0).getTransmissionTime() + lastTransmittedTimestamp
-						- list.get(0).getQueueArrivalTimestamp();
-				if (list.get(0).isLowLatency()) {
+				double packetDelay = currentPacket.getTransmissionTime() + lastTransmittedTimestamp
+						- currentPacket.getQueueArrivalTimestamp();
+				if (currentPacket.isLowLatency()) {
 					setAccumulatedDelayLowLatency(getAccumulatedDelayLowLatency() + packetDelay);
 					setNumPacketsLowLatency(getNumPacketsLowLatency() + 1);
 				} else {
@@ -297,7 +294,7 @@ public class Queue {
 					// + DecimalFormatUtils.getDecimalFormat4().format(packetDelay * 1e6));
 				}
 
-				lastTransmittedTimestamp = lastTransmittedTimestamp + list.remove(0).getTransmissionTime();
+				lastTransmittedTimestamp = lastTransmittedTimestamp + currentPacket.getTransmissionTime();
 			} else {
 				break;
 			}
