@@ -68,7 +68,7 @@ Besides, comment lines are allowed, starting the line with the '#' character. An
 - The final results of the simulation are written to standard output.
 - The standard error output is also used to inform of the parameters of the running simulation, and also its status.
 - A "results" folder is created to store the detailed results of the simulation.
-- Setting the `PRINT_PACKETS=true` in the `auxiliar.Queue`: A "packets" folder is created to store the packets transmitted by each port, of this simulation.
+- Setting the `PRINT_PACKETS=true` in the `auxiliar.Queue`: A "packets" folder is created to store the packets transmitted by each port during this simulation.
 
 ## Adding an algorithm
 
