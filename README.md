@@ -5,7 +5,7 @@
 
 ## Description
 
-This is a simulator of a bundle of Energy-Efficient Ethernet (EEE) links between two switches. It simulates an Software-Defined Networking (SDN) application which periodically queries the flows installed in the first switch and performs a new allocation of the flows to the ports of the bundle, that will be used during the next interval.
+This is a simulator of a bundle of Energy-Efficient Ethernet (EEE) links between two switches. It simulates a Software-Defined Networking (SDN) application which periodically queries the flows installed in the first switch and performs a new allocation of the flows to the ports of the bundle, that will be used during the next interval.
 
 The simulator has been designed following the Open Network Operating System (ONOS) syntax in order to ease the migration of the algorithms to an operative ONOS application.
 
