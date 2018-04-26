@@ -15,13 +15,16 @@ import auxiliar.FlowEntry;
 import auxiliar.PortNumber;
 
 /**
- * Version 3: Compute expected number of ports needed (port occupation +
- * security margin), and minimize the individual occupation of each port.
+ * Version 5: Compute expected number of ports needed (port occupation +
+ * security margin). Sort the flows decreasingly on the expected load.
+ * Reallocate a flow to the same port if the port has less allocated rate than
+ * expectedLoad/neededPorts. Otherwise, allocate the flow to the most empty
+ * port.
  * 
  * @author pfondo
  *
  */
-public class Algorithm3 extends BaseAlgorithm {
+public class Algorithm5 extends BaseAlgorithm {
 
 	private static final double EXPECTED_LOAD_MARGIN = 0.2;
 
@@ -41,9 +44,6 @@ public class Algorithm3 extends BaseAlgorithm {
 
 		double expectedLoad = computeExpectedLoad(flowMap);
 		lastNeededPorts = (int) Math.ceil(expectedLoad + EXPECTED_LOAD_MARGIN);
-		if (DEBUG) {
-			System.out.println("_neededPorts = " + lastNeededPorts);
-		}
 
 		List<Entry<FlowEntry, Long>> flowList = new ArrayList<Entry<FlowEntry, Long>>(flowMap.entrySet());
 		Collections.sort(flowList, new Comparator<Entry<FlowEntry, Long>>() {
@@ -77,29 +77,56 @@ public class Algorithm3 extends BaseAlgorithm {
 				}
 			});
 			// To get the time flow has been active during the last interval
-
 			long currentFlowBytes = entryFlowEntry.getValue();
 			// Apply correction based on life of the current flow:
 			currentFlowBytes *= delay
 					/ Math.min(entryFlowEntry.getKey().life(networkSimulator.getCurrentTime()), delay);
 
-			for (Entry<PortNumber, PortStatistics> entry : sortedPortOccupation) {
-				PortNumber pn = entry.getKey();
-				double portBytesAvailable = getPortBytesAvailable(entry.getValue().getNumFlowsInterval());
-				long total = portOccupation.get(pn).getBytes() + currentFlowBytes;
-				// log.info("Port " + pn + ": " + total + "bytes");
-				if (total <= portBytesAvailable || portOccupation.get(pn).getBytes() == 0) {
-					// It can be allocated in this port
-					// log.info("FE: " + flowEntry.getKey().id() + " -> " + pn);
-					// System.out.println("+Port" + pn + ": " +
-					// entryFlowEntry.getKey() + " -> "
-					// + entryFlowEntry.getValue() + " bytes");
-					portOccupation.get(pn).setBytes(total);
-					portOccupation.get(pn).addFlow();
-					// This flow only needs to be modified if the port
-					// allocation is different from the current
-					flowAllocation.put(entryFlowEntry.getKey(), pn);
+			boolean allocated = false;
+
+			for (int i = 0; i < sortedPortOccupation.size(); i++) {
+				Entry<PortNumber, PortStatistics> portEntry = sortedPortOccupation.get(i);
+				// If the port where it is allocated will be active, try to allocate to it
+				if (portEntry.getKey().equals(entryFlowEntry.getKey().getOutputPort())) {
+					double portBytesAvailable = getPortBytesAvailable(portEntry.getValue().getNumFlowsInterval())
+							* expectedLoad / lastNeededPorts;
+					long total = portOccupation.get(portEntry.getKey()).getBytes() + currentFlowBytes;
+					// log.info("Port " + pn + ": " + total + "bytes");
+					if (total <= portBytesAvailable || portOccupation.get(portEntry.getKey()).getBytes() == 0) {
+						// It can be allocated in this port
+						// log.info("FE: " + flowEntry.getKey().id() + " -> " + pn);
+						// System.out.println("+Port" + pn + ": " + entryFlowEntry.getKey() + " -> " +
+						// entryFlowEntry.getValue() + " bytes");
+						portOccupation.get(portEntry.getKey()).setBytes(total);
+						portOccupation.get(portEntry.getKey()).addFlow();
+						// This flow only needs to be modified if the port
+						// allocation is different from the current
+						flowAllocation.put(entryFlowEntry.getKey(), portEntry.getKey());
+						allocated = true;
+					}
 					break;
+				}
+			}
+
+			if (!allocated) {
+
+				for (Entry<PortNumber, PortStatistics> entry : sortedPortOccupation) {
+					PortNumber pn = entry.getKey();
+					double portBytesAvailable = getPortBytesAvailable(entry.getValue().getNumFlowsInterval());
+					long total = portOccupation.get(pn).getBytes() + currentFlowBytes;
+					// log.info("Port " + pn + ": " + total + "bytes");
+					if (total <= portBytesAvailable || portOccupation.get(pn).getBytes() == 0) {
+						// It can be allocated in this port
+						// log.info("FE: " + flowEntry.getKey().id() + " -> " + pn);
+						// System.out.println("+Port" + pn + ": " + entryFlowEntry.getKey() + " -> " +
+						// entryFlowEntry.getValue() + " bytes");
+						portOccupation.get(pn).setBytes(total);
+						portOccupation.get(pn).addFlow();
+						// This flow only needs to be modified if the port
+						// allocation is different from the current
+						flowAllocation.put(entryFlowEntry.getKey(), pn);
+						break;
+					}
 				}
 			}
 		}

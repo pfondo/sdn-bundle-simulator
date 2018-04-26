@@ -29,6 +29,7 @@ import auxiliar.Packet;
 public class NetworkSimulator {
 
 	private static final boolean DEBUG = false;
+	private static final boolean WITH_TABS = true;
 
 	private double period; // seconds
 	private double flowRuleTimeout; // seconds
@@ -278,7 +279,7 @@ public class NetworkSimulator {
 		double averageDelay = accumulatedDelay / totalPacketsToComputeDelay;
 		double averageDelayLowLatency = accumulatedDelayLowLatency / totalPacketsToComputeDelayLowLatency;
 
-		DecimalFormat df = DecimalFormatUtils.getDecimalFormat4();
+		DecimalFormat df = DecimalFormatUtils.getDecimalFormat4Pad0();
 
 		printStream.println("Average consumption (model): " + df.format(averageConsumptionModel * 100.0) + " %");
 		printStream.println("Average consumption (real): " + df.format(averageConsumptionReal * 100.0) + " %");
@@ -288,41 +289,47 @@ public class NetworkSimulator {
 
 		String finalResult = "";
 		// input filename
-		finalResult += inputFile + " ";
+		finalResult += inputFile + (WITH_TABS ? "\t" : " ");
 		// algorithm
-		finalResult += algorithm.getClass().getSimpleName() + " ";
+		finalResult += algorithm.getClass().getSimpleName() + (WITH_TABS ? "\t" : " ");
 		// sampling period in seconds
-		finalResult += df.format(period) + " ";
+		finalResult += df.format(period) + (WITH_TABS ? "\t\t" : " ");
 		// range of bits used to identify the flows
-		finalResult += startBitDstIp + "-" + endBitDstIp + " ";
+		finalResult += startBitDstIp + "-" + endBitDstIp + (WITH_TABS ? "\t" : " ");
 		// size of the buffer in milliseconds
-		finalResult += df.format(queueSize * 1e3) + " ";
+		finalResult += df.format(queueSize * 1e3) + (WITH_TABS ? "\t\t" : " ");
 		// speed of the trace
-		finalResult += df.format(speed) + " ";
+		finalResult += df.format(speed) + (WITH_TABS ? "\t" : " ");
 		// num ports of the bundle
-		finalResult += df.format(numPorts) + " ";
+		finalResult += numPorts + (WITH_TABS ? "\t" : " ");
 		// average rate in Mbps
-		finalResult += df.format(averageRate) + " ";
-		// total number of flow mods
-		finalResult += numFlowMods + " ";
+		finalResult += df.format(averageRate) + (WITH_TABS ? "\t" : " ");
+		// total number of flow mods (per interval)
+		finalResult += df.format((numFlowMods / ((double) (iteration - iterationsToDiscard))))
+				+ (WITH_TABS ? "\t\t" : " ");
 		// total loss percent
-		finalResult += df.format(totalLostPackets * 100.0 / totalPackets) + " ";
+		finalResult += df.format(totalLostPackets * 100.0 / totalPackets) + (WITH_TABS ? "\t" : " ");
 		// model energy consumption percent
-		finalResult += df.format(averageConsumptionModel * 100.0) + " ";
+		finalResult += df.format(averageConsumptionModel * 100.0) + (WITH_TABS ? "\t\t" : " ");
 		// real energy consumption percent
-		finalResult += df.format(averageConsumptionReal * 100.0) + " ";
+		finalResult += df.format(averageConsumptionReal * 100.0) + (WITH_TABS ? "\t\t" : " ");
 		// average delay of the packets
-		finalResult += df.format(averageDelay * 1e6) + " ";
+		finalResult += df.format(averageDelay * 1e6) + (WITH_TABS ? "\t\t" : " ");
 		// average delay of the low-latency packets
 		if (totalPacketsToComputeDelayLowLatency > 0) {
-			finalResult += df.format(averageDelayLowLatency * 1e6) + " ";
+			finalResult += df.format(averageDelayLowLatency * 1e6);
 		}
 		finalResult += "\n";
 
-		String header = "# file algorithm period(s) bits buffer(ms) speed numPorts rate(Mbps) flow_mods loss(%) model_energy(%) real_energy(%) avg_delay(us)";
+		String header = "# file" + (WITH_TABS ? "\t\t\t" : " ") + "algorithm" + (WITH_TABS ? "\t" : " ") + "period(s)"
+				+ (WITH_TABS ? "\t" : " ") + "bits" + (WITH_TABS ? "\t" : " ") + "buffer(ms)" + (WITH_TABS ? "\t" : " ")
+				+ "speed" + (WITH_TABS ? "\t" : " ") + "ports" + (WITH_TABS ? "\t" : " ") + "rate(Mbps)"
+				+ (WITH_TABS ? "\t" : " ") + "flow_mods(int)" + (WITH_TABS ? "\t" : " ") + "loss(%)"
+				+ (WITH_TABS ? "\t" : " ") + "model_energy(%)" + (WITH_TABS ? "\t" : " ") + "real_energy(%)"
+				+ (WITH_TABS ? "\t" : " ") + "avg_delay(us)";
 
 		if (totalPacketsToComputeDelayLowLatency > 0) {
-			header += " avg_delay_low_latency(us)";
+			header += (WITH_TABS ? "\t" : " ") + "avg_delay_low_latency(us)";
 		}
 		header += "\n";
 

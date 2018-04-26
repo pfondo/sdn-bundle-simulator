@@ -64,6 +64,10 @@ public class PortStatistics {
 	public void addFlow() {
 		this.numFlowsInterval += 1;
 	}
+	
+	public void removeFlow() {
+		this.numFlowsInterval -= 1;
+	}
 
 	public double getOccupation(boolean isInterval) {
 		setOccupation(isInterval);
