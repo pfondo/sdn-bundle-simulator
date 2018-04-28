@@ -69,6 +69,8 @@ public class Configuration {
 		algorithmsAvailable.put("7", Algorithm7.class);
 		algorithmsAvailable.put("8", Algorithm8.class);
 		algorithmsAvailable.put("9", Algorithm9.class);
+		algorithmsAvailable.put("10", Algorithm10.class);
+		algorithmsAvailable.put("11", Algorithm11.class);
 		// TODO: Include here your custom algorithm (e.g., algorithmsAvailable.put("X",
 		// AlgorithmX.class);)
 

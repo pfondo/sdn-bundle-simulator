@@ -200,7 +200,11 @@ public abstract class BaseAlgorithm {
 									filteredFlowMap.remove(fe);
 								}
 							}
+
+							long startTime = System.nanoTime();
 							Map<FlowEntry, PortNumber> flowAllocation = computeAllocation(filteredFlowMap, linkPorts);
+							long stopTime = System.nanoTime();
+							long algorithmExecutionTime = stopTime - startTime;
 
 							long numFlowMods = 0;
 
@@ -225,7 +229,7 @@ public abstract class BaseAlgorithm {
 
 							// Print statistics of the previous interval (before modifying the flows!)
 							networkSimulator.printPortStatistics(deviceId, linkPorts, numFlowsPerPort, numFlowMods,
-									portBandwidth);
+									algorithmExecutionTime, portBandwidth);
 
 							previousFlowEntries = flowAllocation.keySet();
 						}

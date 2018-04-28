@@ -60,6 +60,8 @@ public class NetworkSimulator {
 
 	private long numFlowMods;
 
+	private long accAlgorithmExecutionTime;
+
 	private double lastArrivalTimestamp = 0;
 
 	private Map<DeviceId, Map<PortNumber, PortStatistics>> totalPortStatistics;
@@ -191,7 +193,7 @@ public class NetworkSimulator {
 	}
 
 	public void printPortStatistics(DeviceId deviceId, Set<PortNumber> portList, Map<PortNumber, Long> numFlowsPerPort,
-			long flowMods, double PORT_BANDWIDTH) {
+			long flowMods, long algorithmExecutionTime, double PORT_BANDWIDTH) {
 		Map<PortNumber, PortStatistics> portOccupation = new HashMap<PortNumber, PortStatistics>();
 
 		double averageConsumption = 0;
@@ -217,9 +219,11 @@ public class NetworkSimulator {
 		// Now: Discarding flowMods of this interval if this interval must be discarded
 		if (!mustDiscard) {
 			numFlowMods += flowMods;
+			accAlgorithmExecutionTime += algorithmExecutionTime;
 		}
 
 		printStream.println("Num flow mods: " + flowMods);
+		printStream.println("Algorithm execution time: " + (algorithmExecutionTime / 1e6) + " ms");
 		// printQueueStatistics();
 	}
 
@@ -287,6 +291,10 @@ public class NetworkSimulator {
 		// Print num flow mods
 		printStream.println("Num flow mods: " + numFlowMods);
 
+		// Print algorithm execution time
+		printStream.println("Average algorithm execution time: "
+				+ df.format((accAlgorithmExecutionTime / ((double) 1e6 * (iteration - iterationsToDiscard)))) + " ms");
+
 		String finalResult = "";
 		// input filename
 		finalResult += inputFile + (WITH_TABS ? "\t" : " ");
@@ -307,6 +315,9 @@ public class NetworkSimulator {
 		// total number of flow mods (per interval)
 		finalResult += df.format((numFlowMods / ((double) (iteration - iterationsToDiscard))))
 				+ (WITH_TABS ? "\t\t" : " ");
+		// average algorithm execution time
+		finalResult += df.format((accAlgorithmExecutionTime / ((double) 1e6 * (iteration - iterationsToDiscard))))
+				+ (WITH_TABS ? "\t\t\t" : " ");
 		// total loss percent
 		finalResult += df.format(totalLostPackets * 100.0 / totalPackets) + (WITH_TABS ? "\t" : " ");
 		// model energy consumption percent
@@ -324,9 +335,9 @@ public class NetworkSimulator {
 		String header = "# file" + (WITH_TABS ? "\t\t\t" : " ") + "algorithm" + (WITH_TABS ? "\t" : " ") + "period(s)"
 				+ (WITH_TABS ? "\t" : " ") + "bits" + (WITH_TABS ? "\t" : " ") + "buffer(ms)" + (WITH_TABS ? "\t" : " ")
 				+ "speed" + (WITH_TABS ? "\t" : " ") + "ports" + (WITH_TABS ? "\t" : " ") + "rate(Mbps)"
-				+ (WITH_TABS ? "\t" : " ") + "flow_mods(int)" + (WITH_TABS ? "\t" : " ") + "loss(%)"
-				+ (WITH_TABS ? "\t" : " ") + "model_energy(%)" + (WITH_TABS ? "\t" : " ") + "real_energy(%)"
-				+ (WITH_TABS ? "\t" : " ") + "avg_delay(us)";
+				+ (WITH_TABS ? "\t" : " ") + "flow_mods(int)" + (WITH_TABS ? "\t" : " ") + "avg_time_alg(ms)"
+				+ (WITH_TABS ? "\t" : " ") + "loss(%)" + (WITH_TABS ? "\t" : " ") + "model_energy(%)"
+				+ (WITH_TABS ? "\t" : " ") + "real_energy(%)" + (WITH_TABS ? "\t" : " ") + "avg_delay(us)";
 
 		if (totalPacketsToComputeDelayLowLatency > 0) {
 			header += (WITH_TABS ? "\t" : " ") + "avg_delay_low_latency(us)";
