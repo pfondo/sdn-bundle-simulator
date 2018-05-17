@@ -19,11 +19,16 @@ import utils.FileNameUtils;
  *
  */
 public class Queue {
+	public enum QueueType {
+		NORMAL, HIGHPRIORITY
+	}
+
 	public static final boolean DEBUG = false;
 	private static final boolean PRINT_PACKETS = false;
 
 	private double queueSize; // delay in seconds
 
+	private List<Packet> priorityList;
 	private List<Packet> list;
 	private double lastTransmittedTimestamp;
 	private int numExceeded;
@@ -47,12 +52,18 @@ public class Queue {
 	// Accumulated delay of the packets in the queue
 	double totalDelay = 0;
 
+	// Accumulated delay of the packets in the queue
+	double totalDelayPriority = 0;
+
 	// Experimental
 	private long packetCount;
 	private double idleTime; // Time in seconds that the port has been idle
 
+	private String portName;
+
 	public Queue(String subFolder, String portName, double queueSize) {
 		this.list = new ArrayList<Packet>();
+		this.priorityList = new ArrayList<Packet>();
 		this.lastTransmittedTimestamp = 0;
 		this.numExceeded = 0;
 		this.bytesExceeded = 0;
@@ -64,7 +75,9 @@ public class Queue {
 		this.queueSize = queueSize;
 		this.packetCount = 0;
 		this.totalDelay = 0;
+		this.totalDelayPriority = 0;
 		this.setIdleTime(0);
+		this.setPortName(portName);
 
 		if (PRINT_PACKETS) {
 			// Ensure the folder exists and it is empty
@@ -160,7 +173,9 @@ public class Queue {
 	public void emptyQueue() {
 		lastTransmittedTimestamp = 0;
 		totalDelay = 0;
+		totalDelayPriority = 0;
 		list.clear();
+		priorityList.clear();
 	}
 
 	public void cleanIdleTime() {
@@ -191,6 +206,10 @@ public class Queue {
 		return totalDelay >= queueSize;
 	}
 
+	public boolean exceedThresholdPriority() {
+		return totalDelayPriority >= queueSize;
+	}
+
 	public int getNumExceeded() {
 		return numExceeded;
 	}
@@ -199,8 +218,8 @@ public class Queue {
 		return bytesExceeded;
 	}
 
-	public int size() {
-		return list.size();
+	public boolean isEmptyPriority() {
+		return priorityList.isEmpty();
 	}
 
 	public boolean isEmpty() {
@@ -215,7 +234,15 @@ public class Queue {
 		return numPackets;
 	}
 
-	public void addPacket(Packet packet) {
+	public void addPacket(Packet packet, boolean lowLatency, QueueType queueType) {
+		if (lowLatency && queueType.equals(QueueType.HIGHPRIORITY)) {
+			addPriorityPacket(packet);
+		} else {
+			addNonPriorityPacket(packet);
+		}
+	}
+
+	public void addNonPriorityPacket(Packet packet) {
 		if (DEBUG) {
 			System.out.println("[DEBUG] Added packet to queue: currentTimestamp=" + packet.getQueueArrivalTimestamp()
 					+ ", transmissionTime=" + packet.getTransmissionTime());
@@ -250,39 +277,97 @@ public class Queue {
 		maxPackets = Math.max(maxPackets, list.size());
 	}
 
+	public void addPriorityPacket(Packet packet) {
+		if (DEBUG) {
+			System.out.println("[DEBUG] Added priority packet to queue of port " + portName + ": currentTimestamp="
+					+ packet.getQueueArrivalTimestamp() + ", transmissionTime=" + packet.getTransmissionTime());
+		}
+
+		if (exceedThresholdPriority()) {
+			numExceeded += 1;
+			bytesExceeded += packet.getBytes();
+		} else {
+			priorityList.add(packet);
+			totalDelayPriority += packet.getTransmissionTime();
+			if (PRINT_PACKETS) {
+				// Print to file of this port! (to be later processed by Miguel's HystEEE
+				// simulator (https://github.com/migrax/HystEEE))
+				if (packet.getQueueArrivalTimestamp() - referenceTimestamp >= 0) {
+					String toPrint = DecimalFormatUtils.getDecimalFormat9().format(
+							packet.getQueueArrivalTimestamp() - referenceTimestamp) + " " + packet.getBytes() + "\n";
+					try {
+						writer.write(toPrint);
+						if (packet.isLowLatency()) {
+							lowLatencyIndexWriter.write(packetCount + "\n");
+						}
+						packetCount += 1;
+					} catch (IOException e) {
+						e.printStackTrace();
+						System.out.println(writer);
+						System.exit(1);
+					}
+				}
+			}
+		}
+		maxPackets = Math.max(maxPackets, priorityList.size());
+	}
+
 	public void update(double currentTimestamp) {
-		while (!isEmpty()) {
-			if (list.get(0).getQueueArrivalTimestamp() > lastTransmittedTimestamp || lastTransmittedTimestamp == 0) {
+		if (!isEmptyPriority()) {
+			updatePriority(currentTimestamp);
+		}
+		if (isEmptyPriority()) {
+			updateNonPriority(currentTimestamp);
+		}
+	}
+
+	public void updatePriority(double currentTimestamp) {
+		while (!isEmptyPriority()) {
+			double lastTransmittedTimestampTmp = lastTransmittedTimestamp;
+			double currentIdleTime = 0;
+			if (priorityList.get(0).getQueueArrivalTimestamp() > lastTransmittedTimestamp
+					|| lastTransmittedTimestamp == 0) {
 				double sleep_time_compensation = 0;
 				if (lastTransmittedTimestamp > 0) {
-					double timeSinceLastTransmissionEnded = list.get(0).getQueueArrivalTimestamp()
+					double timeSinceLastTransmissionEnded = priorityList.get(0).getQueueArrivalTimestamp()
 							- lastTransmittedTimestamp;
-					double currentIdleTime = timeSinceLastTransmissionEnded - EnergyConsumptionUtils.T_S;
+					currentIdleTime = timeSinceLastTransmissionEnded - EnergyConsumptionUtils.T_S;
 					if (currentIdleTime > 0) {
-						setIdleTime(getIdleTime() + currentIdleTime);
+						// setIdleTime(getIdleTime() + currentIdleTime);
 					} else {
-						sleep_time_compensation = -currentIdleTime;
+						sleep_time_compensation = -currentIdleTime; // Note that this will be positive
 					}
-					// sleep_time_compensation = Math.max(EnergyConsumptionUtils.T_S -
-					// timeSinceLastTransmissionEnded, 0);
 
 				} else {
-					double currentIdleTime = (list.get(0).getQueueArrivalTimestamp() - referenceTimestamp);
-					setIdleTime(getIdleTime() + currentIdleTime);
+					currentIdleTime = (priorityList.get(0).getQueueArrivalTimestamp() - referenceTimestamp);
 				}
-				lastTransmittedTimestamp = sleep_time_compensation + list.get(0).getQueueArrivalTimestamp()
+				if (DEBUG) {
+					System.out.println("sleep_time_compensation=" + sleep_time_compensation);
+				}
+				lastTransmittedTimestampTmp = sleep_time_compensation + priorityList.get(0).getQueueArrivalTimestamp()
 						+ EnergyConsumptionUtils.T_W;
 			}
-			// From this point on, lastTransmittedTimestamp contains the timestamp when
-			// the first packet in the queue will be transmitted
-			if (list.get(0).isExpired(currentTimestamp - lastTransmittedTimestamp)) {
+			// From this point on, lastTransmittedTimestamp contains the timestamp when the
+			// first packet in the queue will be transmitted
+			if (currentTimestamp - lastTransmittedTimestampTmp >= 0) { // TODO: Decide if >= or >
 				// The first packet in the queue can be transmitted
-				Packet currentPacket = list.remove(0);
-				totalDelay -= currentPacket.getTransmissionTime();
+				Packet currentPacket = priorityList.remove(0);
+				totalDelayPriority -= currentPacket.getTransmissionTime();
 
-				// Experimental: Recently included transmission time!
-				double packetDelay = currentPacket.getTransmissionTime() + lastTransmittedTimestamp
+				// Update idleTime:
+				if (currentIdleTime > 0) {
+					setIdleTime(getIdleTime() + currentIdleTime);
+				}
+
+				double packetDelay = currentPacket.getTransmissionTime() + lastTransmittedTimestampTmp
 						- currentPacket.getQueueArrivalTimestamp();
+
+				if (DEBUG) {
+					System.out.println("[DEBUG] Added priority packet to queue of port " + portName
+							+ ": queueArrivalTimestamp=" + currentPacket.getQueueArrivalTimestamp()
+							+ ", transmissionTime=" + currentPacket.getTransmissionTime()
+							+ ", lastTransmittedTimestamp=" + lastTransmittedTimestampTmp + ", delay=" + packetDelay);
+				}
 				if (currentPacket.isLowLatency()) {
 					setAccumulatedDelayLowLatency(getAccumulatedDelayLowLatency() + packetDelay);
 					setNumPacketsLowLatency(getNumPacketsLowLatency() + 1);
@@ -294,16 +379,66 @@ public class Queue {
 					// + DecimalFormatUtils.getDecimalFormat4().format(packetDelay * 1e6));
 				}
 
-				lastTransmittedTimestamp = lastTransmittedTimestamp + currentPacket.getTransmissionTime();
+				lastTransmittedTimestamp = lastTransmittedTimestampTmp + currentPacket.getTransmissionTime();
 			} else {
 				break;
 			}
 		}
-		if (!list.isEmpty()) {
-			if (DEBUG) {
-				System.out.println("[DEBUG] Unable to transmit packet: currentTimestamp=" + currentTimestamp
-						+ ", lastTxTimestamp=" + lastTransmittedTimestamp + ", list.size()=" + list.size()
-						+ ", transmissionTime=" + list.get(0).getTransmissionTime());
+	}
+
+	public void updateNonPriority(double currentTimestamp) {
+		while (!isEmpty()) {
+			double lastTransmittedTimestampTmp = lastTransmittedTimestamp;
+			double currentIdleTime = 0;
+			if (list.get(0).getQueueArrivalTimestamp() > lastTransmittedTimestamp || lastTransmittedTimestamp == 0) {
+				double sleep_time_compensation = 0;
+				if (lastTransmittedTimestamp > 0) {
+					double timeSinceLastTransmissionEnded = list.get(0).getQueueArrivalTimestamp()
+							- lastTransmittedTimestamp;
+					currentIdleTime = timeSinceLastTransmissionEnded - EnergyConsumptionUtils.T_S;
+					if (currentIdleTime > 0) {
+						// setIdleTime(getIdleTime() + currentIdleTime);
+					} else {
+						sleep_time_compensation = -currentIdleTime;
+					}
+
+				} else {
+					currentIdleTime = (list.get(0).getQueueArrivalTimestamp() - referenceTimestamp);
+					// setIdleTime(getIdleTime() + currentIdleTime);
+				}
+				lastTransmittedTimestampTmp = sleep_time_compensation + list.get(0).getQueueArrivalTimestamp()
+						+ EnergyConsumptionUtils.T_W;
+			}
+			// From this point on, lastTransmittedTimestamp contains the timestamp when
+			// the first packet in the queue will be transmitted
+			if (currentTimestamp - lastTransmittedTimestampTmp >= 0) { // TODO: Decidir si >= ó >
+				// The first packet in the queue can be transmitted
+				Packet currentPacket = list.remove(0);
+				totalDelay -= currentPacket.getTransmissionTime();
+
+				// Update idleTime:
+				if (currentIdleTime > 0) {
+					setIdleTime(getIdleTime() + currentIdleTime);
+				}
+
+				// Experimental: Recently included transmission time!
+				double packetDelay = currentPacket.getTransmissionTime() + lastTransmittedTimestampTmp
+						- currentPacket.getQueueArrivalTimestamp();
+
+				if (currentPacket.isLowLatency()) {
+					setAccumulatedDelayLowLatency(getAccumulatedDelayLowLatency() + packetDelay);
+					setNumPacketsLowLatency(getNumPacketsLowLatency() + 1);
+				} else {
+					accumulatedDelay += packetDelay;
+					numPackets += 1;
+					// System.err.println("[JAVA] " + fileName.split("/")[fileName.split("/").length
+					// - 1] + " "
+					// + DecimalFormatUtils.getDecimalFormat4().format(packetDelay * 1e6));
+				}
+
+				lastTransmittedTimestamp = lastTransmittedTimestampTmp + currentPacket.getTransmissionTime();
+			} else {
+				break;
 			}
 		}
 	}
@@ -330,6 +465,14 @@ public class Queue {
 
 	public void setIdleTime(double idleTime) {
 		this.idleTime = idleTime;
+	}
+
+	public String getPortName() {
+		return portName;
+	}
+
+	public void setPortName(String portName) {
+		this.portName = portName;
 	}
 
 }

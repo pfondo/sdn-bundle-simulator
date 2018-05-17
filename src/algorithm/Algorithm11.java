@@ -2,7 +2,6 @@ package algorithm;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -17,7 +16,7 @@ import auxiliar.PortNumber;
 
 /**
  * Version 11: Compute expected number of ports needed (port occupation +
- * security margin). Compute the "best" allocation.
+ * security margin). Compute the "best" allocation using a brute force algorithm.
  * 
  * @author pfondo
  *

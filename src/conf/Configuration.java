@@ -22,6 +22,7 @@ public class Configuration {
 	// DEFAULT_VALUES
 	public final String DEFAULT_INPUT_FILE = "trace_complete.txt";
 	public final String DEFAULT_ALGORITHM = "3";
+	public final String DEFAULT_LOW_LATENCY_ALGORITHM = "0";
 	public final String DEFAULT_NUM_PORTS = "5";
 	public final String DEFAULT_SAMPLING_PERIOD = "0.5";
 	public final String DEFAULT_FR_TIMEOUT = "30";
@@ -43,6 +44,8 @@ public class Configuration {
 	private int endBitDstIp;
 	private double queueSize;
 	private double speed;
+	// private boolean priorityQueues;
+	private Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithm;
 
 	private String outputFile;
 
@@ -53,7 +56,7 @@ public class Configuration {
 
 	/**
 	 * Returns a mapping from command line algorithm argument value to algorithm
-	 * Class.
+	 * class.
 	 * 
 	 * @return
 	 */
@@ -78,6 +81,23 @@ public class Configuration {
 	}
 
 	/**
+	 * Returns a mapping from command line low-latency algorithm argument value to
+	 * low-latency algorithm class.
+	 * 
+	 * @return
+	 */
+	public Map<String, Class<? extends LowLatencyBaseAlgorithm>> getLowLatencyAlgorithmsAvailable() {
+		Map<String, Class<? extends LowLatencyBaseAlgorithm>> lowLatencyAlgorithmsAvailable = new HashMap<String, Class<? extends LowLatencyBaseAlgorithm>>();
+		lowLatencyAlgorithmsAvailable.put("0", LowLatencyAlgorithm0.class);
+		lowLatencyAlgorithmsAvailable.put("1", LowLatencyAlgorithm1.class);
+		lowLatencyAlgorithmsAvailable.put("2", LowLatencyAlgorithm2.class);
+		// TODO: Include here your custom low-latency algorithm (e.g.,
+		// algorithmsAvailable.put("X", AlgorithmX.class);)
+
+		return lowLatencyAlgorithmsAvailable;
+	}
+
+	/**
 	 * Parses the algorithm command line option, setting the algorithm class
 	 * accordingly.
 	 * 
@@ -88,6 +108,20 @@ public class Configuration {
 
 		if (getAlgorithmsAvailable().containsKey(algorithm)) {
 			this.algorithm = getAlgorithmsAvailable().get(algorithm);
+		}
+	}
+
+	/**
+	 * Parses the algorithm command line option, setting the algorithm class
+	 * accordingly.
+	 * 
+	 * @param lowLatencyAlgorithm
+	 *            Command line value for the low-latency algorithm
+	 */
+	public void parseLowLatencyAlgorithmOption(String lowLatencyAlgorithm) {
+
+		if (getLowLatencyAlgorithmsAvailable().containsKey(lowLatencyAlgorithm)) {
+			this.lowLatencyAlgorithm = getLowLatencyAlgorithmsAvailable().get(lowLatencyAlgorithm);
 		}
 	}
 
@@ -104,6 +138,14 @@ public class Configuration {
 		algorithmOption.setRequired(false);
 		algorithmOption.setArgName("ALGORITHM");
 		options.addOption(algorithmOption);
+
+		Option lowLatencyAlgorithmOption = new Option("lla", "lowLatencyAlgorithm", true,
+				"Specifies the low-latency algorithm. Available algorithms: "
+						+ String.join(", ", getLowLatencyAlgorithmsAvailable().keySet())
+						+ " [default: 0]. Note that this is compatible with the \"algorithm\" option.");
+		lowLatencyAlgorithmOption.setRequired(false);
+		lowLatencyAlgorithmOption.setArgName("ALGORITHM");
+		options.addOption(lowLatencyAlgorithmOption);
 
 		Option numPortsOption = new Option("n", "numPorts", true, "Specifies the number of ports. [default: 5].");
 		numPortsOption.setRequired(false);
@@ -145,6 +187,13 @@ public class Configuration {
 		speedOption.setArgName("SPEED");
 		options.addOption(speedOption);
 
+		/*
+		 * Option priorityQueuesOption = new Option("pq", "priorityQueues", false,
+		 * "Enable priority queues on the ports.");
+		 * priorityQueuesOption.setRequired(false);
+		 * options.addOption(priorityQueuesOption);
+		 */
+
 		Option helpOption = new Option("h", "help", false, "Shows this help menu.");
 		helpOption.setRequired(false);
 		options.addOption(helpOption);
@@ -166,11 +215,17 @@ public class Configuration {
 			return;
 		}
 
+		// this.priorityQueues = cmd.hasOption("pq");
+
 		this.inputFile = cmd.getOptionValue("input", DEFAULT_INPUT_FILE);
 
 		String algorithm = cmd.getOptionValue("algorithm", DEFAULT_ALGORITHM);
 
 		parseAlgorithmOption(algorithm);
+
+		String lowLatencyAlgorithm = cmd.getOptionValue("lowLatencyAlgorithm", DEFAULT_LOW_LATENCY_ALGORITHM);
+
+		parseLowLatencyAlgorithmOption(lowLatencyAlgorithm);
 
 		this.numPorts = Integer.parseInt(cmd.getOptionValue("numPorts", DEFAULT_NUM_PORTS));
 
@@ -192,7 +247,7 @@ public class Configuration {
 	 */
 	public void init() {
 		outputFile = FileNameUtils.BASE_PATH + FileNameUtils.generateOutputFileName(algorithm, inputFile, period,
-				flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed, numPorts);
+				flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed, numPorts, lowLatencyAlgorithm);
 		try {
 			printStream = new PrintStream(new FileOutputStream(outputFile));
 		} catch (FileNotFoundException e) {
@@ -295,6 +350,23 @@ public class Configuration {
 
 	public void setNumPorts(int numPorts) {
 		this.numPorts = numPorts;
+	}
+
+	/*
+	 * public boolean isPriorityQueues() { return priorityQueues; }
+	 */
+
+	/*
+	 * public void setPriorityQueues(boolean priorityQueues) { this.priorityQueues =
+	 * priorityQueues; }
+	 */
+
+	public Class<? extends LowLatencyBaseAlgorithm> getLowLatencyAlgorithm() {
+		return lowLatencyAlgorithm;
+	}
+
+	public void setLowLatencyAlgorithm(Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithm) {
+		this.lowLatencyAlgorithm = lowLatencyAlgorithm;
 	}
 
 }

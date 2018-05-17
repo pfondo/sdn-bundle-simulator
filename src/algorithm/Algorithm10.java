@@ -31,7 +31,7 @@ public class Algorithm10 extends BaseAlgorithm {
 
 	// Does not take into account flows that must be rescheduled (ports currently
 	// inactive)
-	private static final double MIN_IMPROVEMENT = 1e-8;
+	private static final double MIN_IMPROVEMENT = 1e-7;
 
 	private static final Comparator<Entry<FlowEntry, Long>> flowComparatorDecreasing = new Comparator<Entry<FlowEntry, Long>>() {
 		@Override

@@ -22,6 +22,8 @@ public abstract class BaseAlgorithm {
 
 	protected final Logger log = new Logger();
 
+	protected LowLatencyBaseAlgorithm lowLatencyAlgorithm;
+
 	protected double portBandwidth = 1.25E9; // 1.25E9 = 1.25 GB/s = 10 Gb/s
 	protected double portBytesInterface;
 
@@ -92,6 +94,7 @@ public abstract class BaseAlgorithm {
 	// Must be called after instantiation
 	public void init(NetworkSimulator networkSimulator) {
 		this.networkSimulator = networkSimulator;
+		this.lowLatencyAlgorithm = networkSimulator.getLowLatencyAlgorithm();
 		this.delay = networkSimulator.getDelay();
 		this.flowRuleTimeout = networkSimulator.getDelay();
 		setTopology(networkSimulator.getNumPorts());
@@ -196,7 +199,7 @@ public abstract class BaseAlgorithm {
 							// Remove low-latency flows from the map passed to the reallocation method
 							Map<FlowEntry, Long> filteredFlowMap = new HashMap<FlowEntry, Long>(flowMap);
 							for (FlowEntry fe : flowMap.keySet()) {
-								if (fe.isLowLatency()) {
+								if (fe.isLowLatency() && !lowLatencyAlgorithm.mustReallocateWithAlgorithm()) {
 									filteredFlowMap.remove(fe);
 								}
 							}
@@ -287,16 +290,10 @@ public abstract class BaseAlgorithm {
 	 * @return The port where this flow must be allocated.
 	 */
 	public PortNumber selectOutputPortLowLatency(DeviceId src, DeviceId dstDevice) {
-
-		PortNumber portNumber = null;
-		if (dstDevice != null) {
-			long maxPortNumber = 0;
-			for (PortNumber pn : getLinkPorts(src, dstDevice)) {
-				if (pn.toLong() > maxPortNumber) {
-					maxPortNumber = pn.toLong();
-					portNumber = pn;
-				}
-			}
+		PortNumber portNumber;
+		portNumber = lowLatencyAlgorithm.selectOutputPortLowLatency(getLinkPorts(src, dstDevice));
+		if (portNumber == null) {
+			portNumber = this.selectOutputPort(src, dstDevice);
 		}
 		return portNumber;
 	}

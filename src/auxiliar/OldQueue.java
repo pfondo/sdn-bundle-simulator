@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The queue (buffer) size is in number of packets!
+ * DEPRECATED: The queue (buffer) size is in number of packets!
  * 
  * @author pfondo
  *

@@ -17,6 +17,7 @@ import java.util.Set;
 
 import algorithm.PortStatistics;
 import algorithm.BaseAlgorithm;
+import algorithm.LowLatencyBaseAlgorithm;
 import auxiliar.PortNumber;
 import auxiliar.Queue;
 import conf.Configuration;
@@ -58,6 +59,8 @@ public class NetworkSimulator {
 
 	private BaseAlgorithm algorithm;
 
+	private LowLatencyBaseAlgorithm lowLatencyAlgorithm;
+
 	private long numFlowMods;
 
 	private long accAlgorithmExecutionTime;
@@ -83,7 +86,8 @@ public class NetworkSimulator {
 	 */
 	public NetworkSimulator(Class<? extends BaseAlgorithm> algorithmClass, String inputFile, double delay,
 			double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream, double queueSize,
-			String fileToAppendFinalResults, int iterationsToDiscard, double speed) {
+			String fileToAppendFinalResults, int iterationsToDiscard, double speed,
+			Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithmClass) {
 		this.inputFile = inputFile;
 		iteration = 0;
 		finished = false;
@@ -98,6 +102,7 @@ public class NetworkSimulator {
 			return;
 		}
 		this.algorithm = BaseAlgorithm.newInstance(algorithmClass);
+		this.lowLatencyAlgorithm = LowLatencyBaseAlgorithm.newInstance(lowLatencyAlgorithmClass);
 		this.period = delay;
 		this.flowRuleTimeout = flowRuleTimeout;
 		this.startBitDstIp = startBitDstIp;
@@ -126,6 +131,7 @@ public class NetworkSimulator {
 			return;
 		}
 		this.algorithm = BaseAlgorithm.newInstance(conf.getAlgorithm());
+		this.lowLatencyAlgorithm = LowLatencyBaseAlgorithm.newInstance(conf.getLowLatencyAlgorithm());
 		this.numPorts = conf.getNumPorts();
 		this.period = conf.getPeriod();
 		this.flowRuleTimeout = conf.getFlowRuleTimeout();
@@ -160,11 +166,10 @@ public class NetworkSimulator {
 	public void initPortStatistics(DeviceId deviceId, Set<PortNumber> portList, double PORT_BANDWIDTH) {
 		totalPortStatistics.put(deviceId, new HashMap<PortNumber, PortStatistics>());
 		for (PortNumber pn : portList) {
-			totalPortStatistics.get(deviceId).put(pn,
-					new PortStatistics(
-							FileNameUtils.generateOutputFileName(algorithm.getClass(), inputFile, period,
-									flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed, numPorts),
-							pn, period, PORT_BANDWIDTH, queueSize));
+			totalPortStatistics.get(deviceId).put(pn, new PortStatistics(
+					FileNameUtils.generateOutputFileName(algorithm.getClass(), inputFile, period, flowRuleTimeout,
+							startBitDstIp, endBitDstIp, queueSize, speed, numPorts, lowLatencyAlgorithm.getClass()),
+					pn, period, PORT_BANDWIDTH, queueSize));
 		}
 	}
 
@@ -300,6 +305,8 @@ public class NetworkSimulator {
 		finalResult += inputFile + (WITH_TABS ? "\t" : " ");
 		// algorithm
 		finalResult += algorithm.getClass().getSimpleName() + (WITH_TABS ? "\t" : " ");
+		// low-latency algorithm
+		finalResult += lowLatencyAlgorithm.getClass().getSimpleName() + (WITH_TABS ? "\t" : " ");
 		// sampling period in seconds
 		finalResult += df.format(period) + (WITH_TABS ? "\t\t" : " ");
 		// range of bits used to identify the flows
@@ -332,9 +339,10 @@ public class NetworkSimulator {
 		}
 		finalResult += "\n";
 
-		String header = "# file" + (WITH_TABS ? "\t\t\t" : " ") + "algorithm" + (WITH_TABS ? "\t" : " ") + "period(s)"
-				+ (WITH_TABS ? "\t" : " ") + "bits" + (WITH_TABS ? "\t" : " ") + "buffer(ms)" + (WITH_TABS ? "\t" : " ")
-				+ "speed" + (WITH_TABS ? "\t" : " ") + "ports" + (WITH_TABS ? "\t" : " ") + "rate(Mbps)"
+		String header = "# file" + (WITH_TABS ? "\t\t\t" : " ") + "algorithm" + (WITH_TABS ? "\t" : " ")
+				+ "low_latency_algorithm" + (WITH_TABS ? "\t" : " ") + "period(s)" + (WITH_TABS ? "\t" : " ") + "bits"
+				+ (WITH_TABS ? "\t" : " ") + "buffer(ms)" + (WITH_TABS ? "\t" : " ") + "speed"
+				+ (WITH_TABS ? "\t" : " ") + "ports" + (WITH_TABS ? "\t" : " ") + "rate(Mbps)"
 				+ (WITH_TABS ? "\t" : " ") + "flow_mods(int)" + (WITH_TABS ? "\t" : " ") + "avg_time_alg(ms)"
 				+ (WITH_TABS ? "\t" : " ") + "loss(%)" + (WITH_TABS ? "\t" : " ") + "model_energy(%)"
 				+ (WITH_TABS ? "\t" : " ") + "real_energy(%)" + (WITH_TABS ? "\t" : " ") + "avg_delay(us)";
@@ -494,14 +502,13 @@ public class NetworkSimulator {
 			// No present in the last poll: Allocate new port
 			if (isLowLatency) {
 				matchFlow = new FlowEntry(id, algorithm.selectOutputPortLowLatency(new DeviceId(1), new DeviceId(2)),
-						bytes, time, time, isLowLatency);
+						bytes, time, time, true);
 			} else {
 				matchFlow = new FlowEntry(id, algorithm.selectOutputPort(new DeviceId(1), new DeviceId(2)), bytes, time,
-						time, isLowLatency);
+						time, false);
 			}
 			currentFlows.put(id, matchFlow);
 		}
-		// IMPORTANT: Editing here!
 		PortNumber selectedPort = matchFlow.getOutputPort();
 		totalPortStatistics.get(deviceId).get(selectedPort).addPackets(1);
 		totalPortStatistics.get(deviceId).get(selectedPort).addBytes(bytes);
@@ -511,7 +518,8 @@ public class NetworkSimulator {
 		}
 		queue.update(time);
 		Packet packet = new Packet(bytes, PORT_BANDWIDTH, time, isLowLatency);
-		queue.addPacket(packet);
+		queue.addPacket(packet, isLowLatency, lowLatencyAlgorithm.getQueueType());
+
 		if (Queue.DEBUG) {
 			printStream.print("Added packet to queue of port " + matchFlow.getOutputPort() + "...");
 			Scanner s = new Scanner(System.in);
@@ -566,6 +574,14 @@ public class NetworkSimulator {
 
 	public void setNumPorts(int numPorts) {
 		this.numPorts = numPorts;
+	}
+
+	public LowLatencyBaseAlgorithm getLowLatencyAlgorithm() {
+		return lowLatencyAlgorithm;
+	}
+
+	public void setLowLatencyAlgorithm(LowLatencyBaseAlgorithm lowLatencyAlgorithm) {
+		this.lowLatencyAlgorithm = lowLatencyAlgorithm;
 	}
 
 }
