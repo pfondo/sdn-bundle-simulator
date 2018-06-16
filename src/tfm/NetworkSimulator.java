@@ -49,6 +49,8 @@ public class NetworkSimulator {
 
 	private double speed = 0;
 
+	private double alphaEwma;
+
 	private int iterationsToDiscard;
 
 	private String fileToAppendFinalResults;
@@ -62,6 +64,8 @@ public class NetworkSimulator {
 	private LowLatencyBaseAlgorithm lowLatencyAlgorithm;
 
 	private long numFlowMods;
+
+	private double accRateError;
 
 	private long accAlgorithmExecutionTime;
 
@@ -87,7 +91,7 @@ public class NetworkSimulator {
 	public NetworkSimulator(Class<? extends BaseAlgorithm> algorithmClass, String inputFile, double delay,
 			double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream, double queueSize,
 			String fileToAppendFinalResults, int iterationsToDiscard, double speed,
-			Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithmClass) {
+			Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithmClass, double alphaEwma) {
 		this.inputFile = inputFile;
 		iteration = 0;
 		finished = false;
@@ -111,7 +115,10 @@ public class NetworkSimulator {
 		this.fileToAppendFinalResults = fileToAppendFinalResults;
 		this.queueSize = queueSize;
 		this.speed = speed;
+		this.alphaEwma = alphaEwma;
 		this.iterationsToDiscard = iterationsToDiscard;
+		this.accAlgorithmExecutionTime = 0;
+		this.accRateError = 0;
 		// Must be called at the end of this constructor
 		this.algorithm.init(this);
 	}
@@ -142,10 +149,12 @@ public class NetworkSimulator {
 		this.queueSize = conf.getQueueSize();
 		this.speed = conf.getSpeed();
 		this.iterationsToDiscard = conf.getIterationsToDiscard();
+		this.alphaEwma = conf.getAlphaEwma();
+		this.accAlgorithmExecutionTime = 0;
+		this.accRateError = 0;
 		// Must be called at the end of this constructor
 		this.algorithm.init(this);
 		System.err.println("Executing simulation: " + conf.getOutputFile());
-
 	}
 
 	public void schedule() {
@@ -166,10 +175,10 @@ public class NetworkSimulator {
 	public void initPortStatistics(DeviceId deviceId, Set<PortNumber> portList, double PORT_BANDWIDTH) {
 		totalPortStatistics.put(deviceId, new HashMap<PortNumber, PortStatistics>());
 		for (PortNumber pn : portList) {
-			totalPortStatistics.get(deviceId).put(pn, new PortStatistics(
-					FileNameUtils.generateOutputFileName(algorithm.getClass(), inputFile, period, flowRuleTimeout,
-							startBitDstIp, endBitDstIp, queueSize, speed, numPorts, lowLatencyAlgorithm.getClass()),
-					pn, period, PORT_BANDWIDTH, queueSize));
+			totalPortStatistics.get(deviceId).put(pn,
+					new PortStatistics(FileNameUtils.generateOutputFileName(algorithm.getClass(), inputFile, period,
+							flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed, numPorts,
+							lowLatencyAlgorithm.getClass(), alphaEwma), pn, period, PORT_BANDWIDTH, queueSize));
 		}
 	}
 
@@ -198,7 +207,7 @@ public class NetworkSimulator {
 	}
 
 	public void printPortStatistics(DeviceId deviceId, Set<PortNumber> portList, Map<PortNumber, Long> numFlowsPerPort,
-			long flowMods, long algorithmExecutionTime, double PORT_BANDWIDTH) {
+			long flowMods, long algorithmExecutionTime, double rateError, double PORT_BANDWIDTH) {
 		Map<PortNumber, PortStatistics> portOccupation = new HashMap<PortNumber, PortStatistics>();
 
 		double averageConsumption = 0;
@@ -225,6 +234,7 @@ public class NetworkSimulator {
 		if (!mustDiscard) {
 			numFlowMods += flowMods;
 			accAlgorithmExecutionTime += algorithmExecutionTime;
+			accRateError += rateError;
 		}
 
 		printStream.println("Num flow mods: " + flowMods);
@@ -317,6 +327,8 @@ public class NetworkSimulator {
 		finalResult += df.format(speed) + (WITH_TABS ? "\t" : " ");
 		// num ports of the bundle
 		finalResult += numPorts + (WITH_TABS ? "\t" : " ");
+		// alphaEWMA value
+		finalResult += alphaEwma + (WITH_TABS ? "\t" : " ");
 		// average rate in Mbps
 		finalResult += df.format(averageRate) + (WITH_TABS ? "\t" : " ");
 		// total number of flow mods (per interval)
@@ -331,6 +343,9 @@ public class NetworkSimulator {
 		finalResult += df.format(averageConsumptionModel * 100.0) + (WITH_TABS ? "\t\t" : " ");
 		// real energy consumption percent
 		finalResult += df.format(averageConsumptionReal * 100.0) + (WITH_TABS ? "\t\t" : " ");
+		// average error rate execution time
+		finalResult += df.format((accRateError / ((double) (iteration - iterationsToDiscard))))
+				+ (WITH_TABS ? "\t\t\t" : " ");
 		// average delay of the packets
 		finalResult += df.format(averageDelay * 1e6) + (WITH_TABS ? "\t\t" : " ");
 		// average delay of the low-latency packets
@@ -342,10 +357,11 @@ public class NetworkSimulator {
 		String header = "# file" + (WITH_TABS ? "\t\t\t" : " ") + "algorithm" + (WITH_TABS ? "\t" : " ")
 				+ "low_latency_algorithm" + (WITH_TABS ? "\t" : " ") + "period(s)" + (WITH_TABS ? "\t" : " ") + "bits"
 				+ (WITH_TABS ? "\t" : " ") + "buffer(ms)" + (WITH_TABS ? "\t" : " ") + "speed"
-				+ (WITH_TABS ? "\t" : " ") + "ports" + (WITH_TABS ? "\t" : " ") + "rate(Mbps)"
-				+ (WITH_TABS ? "\t" : " ") + "flow_mods(int)" + (WITH_TABS ? "\t" : " ") + "avg_time_alg(ms)"
-				+ (WITH_TABS ? "\t" : " ") + "loss(%)" + (WITH_TABS ? "\t" : " ") + "model_energy(%)"
-				+ (WITH_TABS ? "\t" : " ") + "real_energy(%)" + (WITH_TABS ? "\t" : " ") + "avg_delay(us)";
+				+ (WITH_TABS ? "\t" : " ") + "ports" + (WITH_TABS ? "\t" : " ") + "alpha" + (WITH_TABS ? "\t" : " ")
+				+ "rate(Mbps)" + (WITH_TABS ? "\t" : " ") + "flow_mods(int)" + (WITH_TABS ? "\t" : " ")
+				+ "avg_time_alg(ms)" + (WITH_TABS ? "\t" : " ") + "loss(%)" + (WITH_TABS ? "\t" : " ")
+				+ "model_energy(%)" + (WITH_TABS ? "\t" : " ") + "real_energy(%)" + (WITH_TABS ? "\t" : " ")
+				+ "estimation_error(Mbps)" + (WITH_TABS ? "\t" : " ") + "avg_delay(us)";
 
 		if (totalPacketsToComputeDelayLowLatency > 0) {
 			header += (WITH_TABS ? "\t" : " ") + "avg_delay_low_latency(us)";
@@ -582,6 +598,14 @@ public class NetworkSimulator {
 
 	public void setLowLatencyAlgorithm(LowLatencyBaseAlgorithm lowLatencyAlgorithm) {
 		this.lowLatencyAlgorithm = lowLatencyAlgorithm;
+	}
+
+	public double getAlphaEwma() {
+		return alphaEwma;
+	}
+
+	public void setAlphaEwma(double alphaEwma) {
+		this.alphaEwma = alphaEwma;
 	}
 
 }

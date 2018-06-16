@@ -309,7 +309,7 @@ public class Algorithm10 extends BaseAlgorithm {
 	 * 
 	 * @param portOccupation
 	 * @param averageBytesPort
-	 * @return The higher, the better. n is the best, 1/n is the worst.
+	 * @return The higher, the better: n is the best, 1/n is the worst.
 	 */
 	public double computeAllocationQuality(Map<PortNumber, PortStatistics> portOccupation, double averageBytesPort) {
 		double sum = 0;
@@ -325,7 +325,7 @@ public class Algorithm10 extends BaseAlgorithm {
 	/**
 	 * @param portOccupation
 	 * @param averageBytesPort
-	 * @return The lower, the better. 0 is the best possible
+	 * @return The lower, the better: 0 is the best possible
 	 */
 	public double computeAllocationQualityOld(Map<PortNumber, PortStatistics> portOccupation, double averageBytesPort) {
 		double quality = 0;

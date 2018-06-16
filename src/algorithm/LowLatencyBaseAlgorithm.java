@@ -1,7 +1,9 @@
 package algorithm;
 
+import java.util.Map;
 import java.util.Set;
 
+import auxiliar.FlowEntry;
 import auxiliar.PortNumber;
 import auxiliar.Queue.QueueType;
 
@@ -33,5 +35,18 @@ public abstract class LowLatencyBaseAlgorithm {
 	public abstract boolean mustReallocateWithAlgorithm();
 
 	public abstract QueueType getQueueType();
+	
+	/**
+	 * Allocate the low-latency flows in a second step (normal flows have already been allocated).
+	 * @param algorithm
+	 * @param flowMapNormal
+	 * @param flowMapLowLatency
+	 * @param linkPorts
+	 * @return
+	 */
+	public Map<FlowEntry, PortNumber> computeAllocationLowLatency(BaseAlgorithm algorithm,
+			Map<FlowEntry, Long> flowMapNormal, Map<FlowEntry, Long> flowMapLowLatency, Set<PortNumber> linkPorts) {
+		return null;
+	}
 
 }

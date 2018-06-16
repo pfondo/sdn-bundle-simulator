@@ -16,7 +16,7 @@ import auxiliar.PortNumber;
 
 /**
  * Version 11: Compute expected number of ports needed (port occupation +
- * security margin). Compute the "best" allocation using a brute force algorithm.
+ * security margin). Compute the optimum allocation using a brute force algorithm.
  * 
  * @author pfondo
  *

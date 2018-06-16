@@ -30,6 +30,7 @@ public class Configuration {
 	public final String DEFAULT_END_BIT_DST_IP = "8";
 	public final String DEFAULT_QUEUE_SIZE = "0.01";
 	public final String DEFAULT_SPEED = "1";
+	public final String DEFAULT_ALPHA_EWMA = "0.2";
 
 	private PrintStream printStream;
 	private int iterationsToDiscard = 1;
@@ -44,6 +45,7 @@ public class Configuration {
 	private int endBitDstIp;
 	private double queueSize;
 	private double speed;
+	private double alphaEwma;
 	// private boolean priorityQueues;
 	private Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithm;
 
@@ -187,6 +189,12 @@ public class Configuration {
 		speedOption.setArgName("SPEED");
 		options.addOption(speedOption);
 
+		Option alphaEwmaOption = new Option("ae", "alphaEWMA", true,
+				"Specifies the alpha parameter of the EWMA [default: 0.2].");
+		alphaEwmaOption.setRequired(false);
+		alphaEwmaOption.setArgName("ALPHA");
+		options.addOption(alphaEwmaOption);
+
 		/*
 		 * Option priorityQueuesOption = new Option("pq", "priorityQueues", false,
 		 * "Enable priority queues on the ports.");
@@ -240,14 +248,17 @@ public class Configuration {
 		this.queueSize = Double.parseDouble(cmd.getOptionValue("queueSize", DEFAULT_QUEUE_SIZE));
 
 		this.speed = Double.parseDouble(cmd.getOptionValue("speed", DEFAULT_SPEED));
+
+		this.setAlphaEwma(Double.parseDouble(cmd.getOptionValue("alphaEWMA", DEFAULT_ALPHA_EWMA)));
 	}
 
 	/**
 	 * Important: Must be called after parse().
 	 */
 	public void init() {
-		outputFile = FileNameUtils.BASE_PATH + FileNameUtils.generateOutputFileName(algorithm, inputFile, period,
-				flowRuleTimeout, startBitDstIp, endBitDstIp, queueSize, speed, numPorts, lowLatencyAlgorithm);
+		outputFile = FileNameUtils.BASE_PATH
+				+ FileNameUtils.generateOutputFileName(algorithm, inputFile, period, flowRuleTimeout, startBitDstIp,
+						endBitDstIp, queueSize, speed, numPorts, lowLatencyAlgorithm, alphaEwma);
 		try {
 			printStream = new PrintStream(new FileOutputStream(outputFile));
 		} catch (FileNotFoundException e) {
@@ -367,6 +378,14 @@ public class Configuration {
 
 	public void setLowLatencyAlgorithm(Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithm) {
 		this.lowLatencyAlgorithm = lowLatencyAlgorithm;
+	}
+
+	public double getAlphaEwma() {
+		return alphaEwma;
+	}
+
+	public void setAlphaEwma(double alphaEwma) {
+		this.alphaEwma = alphaEwma;
 	}
 
 }

@@ -32,6 +32,8 @@ public abstract class BaseAlgorithm {
 	protected double delay;
 	protected double flowRuleTimeout;
 
+	protected double alphaEwma;
+
 	protected NetworkSimulator networkSimulator;
 
 	private Map<DeviceId, Map<DeviceId, List<PortNumber>>> topology = new HashMap<DeviceId, Map<DeviceId, List<PortNumber>>>();
@@ -97,6 +99,7 @@ public abstract class BaseAlgorithm {
 		this.lowLatencyAlgorithm = networkSimulator.getLowLatencyAlgorithm();
 		this.delay = networkSimulator.getDelay();
 		this.flowRuleTimeout = networkSimulator.getDelay();
+		this.alphaEwma = networkSimulator.getAlphaEwma();
 		setTopology(networkSimulator.getNumPorts());
 		portBytesInterface = portBandwidth * delay;
 	}
@@ -159,92 +162,123 @@ public abstract class BaseAlgorithm {
 	}
 
 	// In legacy: Task extends Thread.
-	class Task {
-		public void start() {
-			FlowBytesHistory flowBytesHistory = new FlowBytesHistory();
-			while (!networkSimulator.isFinished()) {
-				for (DeviceId deviceId : getTopology().keySet()) {
-					flowBytesHistory.initIteration(deviceId);
-					// portsBytes.putIfAbsent(deviceId, new HashMap<>());
-					for (DeviceId neighbor : getNeighbors(deviceId)) {
-						Set<PortNumber> linkPorts = getLinkPorts(deviceId, neighbor);
-						if (linkPorts != null) {
-							// i.e. there is an aggregate link between this two
-							// switches
-							Map<FlowEntry, Long> flowMap = new HashMap<FlowEntry, Long>();
+	public void startTask() {
+		FlowBytesHistory flowBytesHistory = new FlowBytesHistory(alphaEwma);
+		while (!networkSimulator.isFinished()) {
+			for (DeviceId deviceId : getTopology().keySet()) {
+				flowBytesHistory.initIteration(deviceId);
+				// portsBytes.putIfAbsent(deviceId, new HashMap<>());
+				for (DeviceId neighbor : getNeighbors(deviceId)) {
+					Set<PortNumber> linkPorts = getLinkPorts(deviceId, neighbor);
+					if (linkPorts != null) {
+						// i.e. there is an aggregate link between this two
+						// switches
+						Map<FlowEntry, Long> flowMap = new HashMap<FlowEntry, Long>();
 
-							Collection<FlowEntry> flowEntries = networkSimulator.getFlowEntries(deviceId,
-									previousFlowEntries, portBandwidth);
+						double accErrorRate = 0;
+						long numFlows = 0;
 
-							if (flowEntries == null) {
-								// Then execution has finished and we don't want to consider last interval since
-								// it could be incomplete
-								break;
+						Collection<FlowEntry> flowEntries = networkSimulator.getFlowEntries(deviceId,
+								previousFlowEntries, portBandwidth);
+
+						if (flowEntries == null) {
+							// Then execution has finished and we don't want to consider last interval since
+							// it could be incomplete
+							break;
+						}
+
+						for (FlowEntry fe : flowEntries) {
+							PortNumber pn = fe.getOutputPort();
+							if (!linkPorts.contains(pn)) {
+								// Exclude this flow if it is not allocated to any port of the bundle
+								continue;
 							}
 
-							for (FlowEntry fe : flowEntries) {
-								PortNumber pn = fe.getOutputPort();
-								if (!linkPorts.contains(pn)) {
-									// Exclude this flow if it is not allocated to any port of the bundle
-									continue;
+							// log.error("Device: " + device.id() + " port:
+							// " + pn + " fe.id(): " + fe.id() + " bytes:" +
+							// fe.bytes());
+
+							double bytesRealCurrent = flowBytesHistory.getFlowBytesRealCurrent(deviceId, fe);
+							numFlows += 1;
+							accErrorRate += flowBytesHistory.computeRateEstimationError(deviceId, fe, bytesRealCurrent,
+									delay);
+							flowMap.put(fe, flowBytesHistory.getFlowBytesEstimation(deviceId, fe));
+						}
+
+						accErrorRate /= numFlows;
+
+						// Remove low-latency flows from the map passed to the reallocation method
+						Map<FlowEntry, Long> filteredFlowMap = new HashMap<FlowEntry, Long>(flowMap);
+						Map<FlowEntry, Long> lowLatencyFlowMap = new HashMap<FlowEntry, Long>(flowMap);
+
+						for (FlowEntry fe : flowMap.keySet()) {
+							if (!fe.isLowLatency()) {
+								lowLatencyFlowMap.remove(fe);
+							}
+							if (fe.isLowLatency() && !lowLatencyAlgorithm.mustReallocateWithAlgorithm()) {
+								filteredFlowMap.remove(fe);
+							}
+						}
+
+						long startTime = System.nanoTime();
+						Map<FlowEntry, PortNumber> flowAllocation = computeAllocation(filteredFlowMap, linkPorts);
+						long stopTime = System.nanoTime();
+						long algorithmExecutionTime = stopTime - startTime;
+
+						long numFlowMods = 0;
+
+						// Update flows based on allocation
+						Map<PortNumber, Long> numFlowsPerPort = new HashMap<PortNumber, Long>();
+						for (PortNumber port : linkPorts) {
+							numFlowsPerPort.put(port, (long) 0);
+						}
+						for (FlowEntry fe : filteredFlowMap.keySet()) {
+							PortNumber oldOutputPort = fe.getOutputPort();
+							numFlowsPerPort.put(oldOutputPort, numFlowsPerPort.get(oldOutputPort) + 1);
+
+							if (flowAllocation.containsKey(fe)) {
+								if (!fe.getOutputPort().equals(flowAllocation.get(fe))) {
+									// The FlowEntry has been scheduled to a new port
+									numFlowMods += 1;
+									fe.setOutputPort(flowAllocation.get(fe));
 								}
-
-								// log.error("Device: " + device.id() + " port:
-								// " + pn + " fe.id(): " + fe.id() + " bytes:" +
-								// fe.bytes());
-
-								flowMap.put(fe, flowBytesHistory.getFlowBytesEstimation(deviceId, fe));
 							}
+						}
 
-							// Remove low-latency flows from the map passed to the reallocation method
-							Map<FlowEntry, Long> filteredFlowMap = new HashMap<FlowEntry, Long>(flowMap);
-							for (FlowEntry fe : flowMap.keySet()) {
-								if (fe.isLowLatency() && !lowLatencyAlgorithm.mustReallocateWithAlgorithm()) {
-									filteredFlowMap.remove(fe);
-								}
-							}
-
-							long startTime = System.nanoTime();
-							Map<FlowEntry, PortNumber> flowAllocation = computeAllocation(filteredFlowMap, linkPorts);
-							long stopTime = System.nanoTime();
-							long algorithmExecutionTime = stopTime - startTime;
-
-							long numFlowMods = 0;
-
-							// Update flows based on allocation: Only need to be
-							// done in simulator
-							Map<PortNumber, Long> numFlowsPerPort = new HashMap<PortNumber, Long>();
-							for (PortNumber port : linkPorts) {
-								numFlowsPerPort.put(port, (long) 0);
-							}
-							for (FlowEntry fe : flowMap.keySet()) {
+						// Compute allocation of low-latency flows (if applicable)
+						Map<FlowEntry, PortNumber> lowLatencyFlowAllocation = lowLatencyAlgorithm
+								.computeAllocationLowLatency(this, filteredFlowMap, lowLatencyFlowMap, linkPorts);
+						// Update low-latency flows
+						if (lowLatencyFlowAllocation != null) {
+							for (FlowEntry fe : lowLatencyFlowMap.keySet()) {
 								PortNumber oldOutputPort = fe.getOutputPort();
 								numFlowsPerPort.put(oldOutputPort, numFlowsPerPort.get(oldOutputPort) + 1);
 
-								if (flowAllocation.containsKey(fe)) {
-									if (!fe.getOutputPort().equals(flowAllocation.get(fe))) {
+								if (lowLatencyFlowAllocation.containsKey(fe)) {
+									networkSimulator.getPrintStream().println("Low-latency flow " + fe.getId()
+											+ ": " + lowLatencyFlowAllocation.get(fe));
+									if (!fe.getOutputPort().equals(lowLatencyFlowAllocation.get(fe))) {
 										// The FlowEntry has been scheduled to a new port
 										numFlowMods += 1;
-										fe.setOutputPort(flowAllocation.get(fe));
+										fe.setOutputPort(lowLatencyFlowAllocation.get(fe));
 									}
 								}
 							}
-
-							// Print statistics of the previous interval (before modifying the flows!)
-							networkSimulator.printPortStatistics(deviceId, linkPorts, numFlowsPerPort, numFlowMods,
-									algorithmExecutionTime, portBandwidth);
-
-							previousFlowEntries = flowAllocation.keySet();
 						}
+
+						// Print statistics of the previous interval (before modifying the flows!)
+						networkSimulator.printPortStatistics(deviceId, linkPorts, numFlowsPerPort, numFlowMods,
+								algorithmExecutionTime, accErrorRate, portBandwidth);
+
+						previousFlowEntries = flowAllocation.keySet();
 					}
-
-					flowBytesHistory.updateFlowBytesPrev(deviceId);
 				}
-			}
-			/* This section is accessed when the execution has finished */
-			printFinalStatistics();
-		}
 
+				flowBytesHistory.updateFlowBytesPrev(deviceId);
+			}
+		}
+		/* This section is accessed when the execution has finished */
+		printFinalStatistics();
 	}
 
 	/**
@@ -299,7 +333,7 @@ public abstract class BaseAlgorithm {
 	}
 
 	public void schedule() {
-		new Task().start();
+		startTask();
 	}
 
 }
