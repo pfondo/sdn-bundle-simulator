@@ -24,7 +24,7 @@ public class Queue {
 	}
 
 	public static final boolean DEBUG = false;
-	private static final boolean PRINT_PACKETS = false;
+	private static final boolean PRINT_PACKETS = true; // false
 
 	private long queueSize; // delay in nanoseconds
 
@@ -113,8 +113,8 @@ public class Queue {
 		if (isEmpty() && isEmptyPriority()) {
 			long currentIdleTime;
 			if (lastTransmittedTimestamp > 0) {
-				currentIdleTime = Math.max(
-						currentTime - (lastTransmittedTimestamp + ((long) (1e9 * EnergyConsumptionUtils.T_S))), 0);
+				currentIdleTime = Math
+						.max(currentTime - (lastTransmittedTimestamp + ((long) (1e9 * EnergyConsumptionUtils.T_S))), 0);
 			} else {
 				currentIdleTime = Math.max(currentTime - referenceTimestamp, 0);
 			}
@@ -263,8 +263,9 @@ public class Queue {
 				// Print to file of this port! (to be later processed by HystEEE simulator
 				// (https://github.com/migrax/HystEEE))
 				if (packet.getQueueArrivalTimestamp() - referenceTimestamp >= 0) {
-					String toPrint = DecimalFormatUtils.getDecimalFormat9().format(
-							packet.getQueueArrivalTimestamp() - referenceTimestamp) + " " + packet.getBytes() + "\n";
+					String toPrint = DecimalFormatUtils.getDecimalFormat9()
+							.format((packet.getQueueArrivalTimestamp() - referenceTimestamp) / 1e9) + " "
+							+ packet.getBytes() + "\n";
 					try {
 						writer.write(toPrint);
 						if (packet.isLowLatency()) {
@@ -298,8 +299,9 @@ public class Queue {
 				// Print to file of this port! (to be later processed by Miguel's HystEEE
 				// simulator (https://github.com/migrax/HystEEE))
 				if (packet.getQueueArrivalTimestamp() - referenceTimestamp >= 0) {
-					String toPrint = DecimalFormatUtils.getDecimalFormat9().format(
-							packet.getQueueArrivalTimestamp() - referenceTimestamp) + " " + packet.getBytes() + "\n";
+					String toPrint = DecimalFormatUtils.getDecimalFormat9()
+							.format((packet.getQueueArrivalTimestamp() - referenceTimestamp) / 1e9) + " "
+							+ packet.getBytes() + "\n";
 					try {
 						writer.write(toPrint);
 						if (packet.isLowLatency()) {
@@ -354,8 +356,9 @@ public class Queue {
 				if (currentIdleTime > 0) {
 					if (!isEmpty() && list.get(0).getQueueArrivalTimestamp() < priorityList.get(0)
 							.getQueueArrivalTimestamp()) {
-						if (list.get(0).getQueueArrivalTimestamp() + ((long) (1e9 * EnergyConsumptionUtils.T_W)) < priorityList.get(0)
-								.getQueueArrivalTimestamp()) {
+						if (list.get(0).getQueueArrivalTimestamp()
+								+ ((long) (1e9 * EnergyConsumptionUtils.T_W)) < priorityList.get(0)
+										.getQueueArrivalTimestamp()) {
 							// Then the low-priority packet will be transmitted before this high-priority
 							// packet
 							break;
@@ -399,7 +402,8 @@ public class Queue {
 				// System.out.println("listTs=" + list.get(0).getQueueArrivalTimestamp());
 				// }
 
-				//System.out.println(currentPacket.getQueueArrivalTimestamp() + " " + packetDelay);
+				// System.out.println(currentPacket.getQueueArrivalTimestamp() + " " +
+				// packetDelay);
 
 				if (currentPacket.isLowLatency()) {
 					setAccumulatedDelayLowLatency(getAccumulatedDelayLowLatency() + packetDelay);
@@ -445,8 +449,7 @@ public class Queue {
 			}
 			// From this point on, lastTransmittedTimestampTmp contains the timestamp when
 			// the first packet in the queue will be transmitted
-			if (!isEmptyPriority()
-					&& priorityList.get(0).getQueueArrivalTimestamp() <= lastTransmittedTimestamp + 1e-7) {
+			if (!isEmptyPriority() && priorityList.get(0).getQueueArrivalTimestamp() <= lastTransmittedTimestampTmp) {
 				// Then a high-priority packet will be transmitted before this low-priority
 				// packet
 				// System.out.println("***");
@@ -476,7 +479,8 @@ public class Queue {
 				long packetDelay = currentPacket.getTransmissionTime() + lastTransmittedTimestampTmp
 						- currentPacket.getQueueArrivalTimestamp();
 
-				//System.out.println(currentPacket.getQueueArrivalTimestamp() + " " + packetDelay);
+				// System.out.println(currentPacket.getQueueArrivalTimestamp() + " " +
+				// packetDelay);
 
 				if (currentPacket.isLowLatency()) {
 					setAccumulatedDelayLowLatency(getAccumulatedDelayLowLatency() + packetDelay);

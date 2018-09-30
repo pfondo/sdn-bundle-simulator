@@ -30,7 +30,7 @@ public class Configuration {
 	public final String DEFAULT_END_BIT_DST_IP = "8";
 	public final String DEFAULT_QUEUE_SIZE = "0.01";
 	public final String DEFAULT_SPEED = "1";
-	public final String DEFAULT_ALPHA_EWMA = "0.2";
+	public final String DEFAULT_ALPHA_EWMA = "1.0";
 
 	private PrintStream printStream;
 	private int iterationsToDiscard = 1;
@@ -195,13 +195,6 @@ public class Configuration {
 		alphaEwmaOption.setArgName("ALPHA");
 		options.addOption(alphaEwmaOption);
 
-		/*
-		 * Option priorityQueuesOption = new Option("pq", "priorityQueues", false,
-		 * "Enable priority queues on the ports.");
-		 * priorityQueuesOption.setRequired(false);
-		 * options.addOption(priorityQueuesOption);
-		 */
-
 		Option helpOption = new Option("h", "help", false, "Shows this help menu.");
 		helpOption.setRequired(false);
 		options.addOption(helpOption);
@@ -239,13 +232,16 @@ public class Configuration {
 
 		this.period = (long) (1e9 * Double.parseDouble(cmd.getOptionValue("period", DEFAULT_SAMPLING_PERIOD)));
 
-		this.flowRuleTimeout = (long) (1e9 * Double.parseDouble(cmd.getOptionValue("flowRuleTimeout", DEFAULT_FR_TIMEOUT)));
+		this.flowRuleTimeout = (long) (1e9
+				* Double.parseDouble(cmd.getOptionValue("flowRuleTimeout", DEFAULT_FR_TIMEOUT)));
 
 		this.startBitDstIp = Integer.parseInt(cmd.getOptionValue("startBitDstIp", DEFAULT_START_BIT_DST_IP));
 
 		this.endBitDstIp = Integer.parseInt(cmd.getOptionValue("endBitDstIp", DEFAULT_END_BIT_DST_IP));
 
-		this.queueSize = (long) (1e9 * Double.parseDouble(cmd.getOptionValue("queueSize", DEFAULT_QUEUE_SIZE))); // Converted to nanoseconds
+		this.queueSize = (long) (1e9 * Double.parseDouble(cmd.getOptionValue("queueSize", DEFAULT_QUEUE_SIZE))); // Converted
+																													// to
+																													// nanoseconds
 
 		this.speed = Double.parseDouble(cmd.getOptionValue("speed", DEFAULT_SPEED));
 

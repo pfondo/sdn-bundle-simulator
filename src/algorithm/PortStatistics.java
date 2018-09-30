@@ -220,16 +220,14 @@ public class PortStatistics {
 		if (isInterval) {
 			long idleTimeFromQueue = getIdleTimeFromQueue();
 			long idleTime = getIdleTime();
-			// System.out.println("idleTimeFromQueue=" + idleTimeFromQueue + " idleTime=" +
-			// idleTime + " time=" + time);
+			System.out.println("idleTimeFromQueue=" + idleTimeFromQueue + " idleTime=" + idleTime + " time=" + time);
 			double idleFraction = (idleTimeFromQueue - idleTime) / (double) time;
 			this.realEnergyConsumption = idleFraction * 0.1 + (1 - idleFraction) * 1;
 			// Update idleTime variable for next intervals
 			setIdleTime(idleTimeFromQueue);
 		} else {
 			long idleTimeFromQueue = getIdleTimeFromQueue();
-			// System.out.println("idleTimeFromQueue=" + idleTimeFromQueue + " time=" +
-			// time);
+			System.out.println("idleTimeFromQueue=" + idleTimeFromQueue + " time=" + time);
 			double idleFraction = idleTimeFromQueue / (double) time;
 			this.realEnergyConsumption = idleFraction * 0.1 + (1 - idleFraction) * 1;
 		}
