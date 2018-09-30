@@ -62,7 +62,7 @@ public class LowLatencyAlgorithm1 extends LowLatencyBaseAlgorithm {
 	@Override
 	public Map<FlowEntry, PortNumber> computeAllocationLowLatency(BaseAlgorithm algorithm,
 			Map<FlowEntry, Long> flowMapNormal, Map<FlowEntry, Long> flowMapLowLatency, Set<PortNumber> linkPorts) {
-		double delay = algorithm.delay;
+		long delay = algorithm.delay;
 		double portBandwidth = algorithm.portBandwidth;
 		Map<FlowEntry, PortNumber> flowAllocation = new HashMap<FlowEntry, PortNumber>();
 

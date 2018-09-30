@@ -68,6 +68,7 @@ public class Algorithm3 extends BaseAlgorithm {
 		// Compute the expected load of the interface
 
 		for (Entry<FlowEntry, Long> entryFlowEntry : flowList) {
+
 			sortedPortOccupation = new ArrayList<Entry<PortNumber, PortStatistics>>(portOccupation.entrySet());
 			Collections.sort(sortedPortOccupation, new Comparator<Entry<PortNumber, PortStatistics>>() {
 				@Override
@@ -102,6 +103,12 @@ public class Algorithm3 extends BaseAlgorithm {
 					break;
 				}
 			}
+			// DEBUG
+			// networkSimulator.getPrintStream()
+			// .println(entryFlowEntry.getValue() + ": " +
+			// Integer.parseInt(entryFlowEntry.getKey().getId(), 2)
+			// + (entryFlowEntry.getKey().isLowLatency() ? "_ll" : "") + ", port: "
+			// + flowAllocation.get(entryFlowEntry.getKey()));
 		}
 
 		if (DEBUG) {
@@ -140,7 +147,7 @@ public class Algorithm3 extends BaseAlgorithm {
 				count++;
 			}
 
-			int selected = (int) (aggregation.size() * Math.random());
+			int selected = (int) (aggregation.size() * random.nextDouble());
 			portNumber = (PortNumber) aggregation.toArray()[selected];
 		}
 		return portNumber;

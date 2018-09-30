@@ -5,7 +5,6 @@ public class EnergyConsumptionUtils {
 	 * Reciprocal of the average frame transmission time
 	 */
 	private static double MU = (10e9) / (8 * 750);
-//	public final static double T_S = 2.28e-6;
 	public final static double T_S = 2.88e-6;
 	public final static double T_W = 4.48e-6;
 

@@ -32,11 +32,11 @@ public class NetworkSimulator {
 	private static final boolean DEBUG = false;
 	private static final boolean WITH_TABS = true;
 
-	private double period; // seconds
-	private double flowRuleTimeout; // seconds
+	private long period; // nanoseconds
+	private long flowRuleTimeout; // nanoseconds
 	private int numPorts;
 
-	private double queueSize; // seconds
+	private long queueSize; // seconds
 
 	private long iteration = 0;
 	private BufferedReader br = null;
@@ -69,7 +69,7 @@ public class NetworkSimulator {
 
 	private long accAlgorithmExecutionTime;
 
-	private double lastArrivalTimestamp = 0;
+	private long lastArrivalTimestamp = 0;
 
 	private Map<DeviceId, Map<PortNumber, PortStatistics>> totalPortStatistics;
 
@@ -77,7 +77,7 @@ public class NetworkSimulator {
 	 * 
 	 * @param algorithmClass
 	 * @param inputFile
-	 * @param delay
+	 * @param period
 	 *            (seconds)
 	 * @param flowRuleTimeout
 	 * @param startBitDstIp
@@ -88,8 +88,8 @@ public class NetworkSimulator {
 	 * @param fileToAppendFinalResults
 	 * @param iterationsToDiscard
 	 */
-	public NetworkSimulator(Class<? extends BaseAlgorithm> algorithmClass, String inputFile, double delay,
-			double flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream, double queueSize,
+	public NetworkSimulator(Class<? extends BaseAlgorithm> algorithmClass, String inputFile, long period,
+			long flowRuleTimeout, int startBitDstIp, int endBitDstIp, PrintStream printStream, long queueSize,
 			String fileToAppendFinalResults, int iterationsToDiscard, double speed,
 			Class<? extends LowLatencyBaseAlgorithm> lowLatencyAlgorithmClass, double alphaEwma) {
 		this.inputFile = inputFile;
@@ -107,7 +107,7 @@ public class NetworkSimulator {
 		}
 		this.algorithm = BaseAlgorithm.newInstance(algorithmClass);
 		this.lowLatencyAlgorithm = LowLatencyBaseAlgorithm.newInstance(lowLatencyAlgorithmClass);
-		this.period = delay;
+		this.period = period;
 		this.flowRuleTimeout = flowRuleTimeout;
 		this.startBitDstIp = startBitDstIp;
 		this.endBitDstIp = endBitDstIp;
@@ -293,6 +293,8 @@ public class NetworkSimulator {
 			printStream.println(ps);
 		}
 
+		//System.out.println("Accumulated total delay: " + (accumulatedDelay + accumulatedDelayLowLatency));
+
 		double averageConsumptionModel = accumulatedConsumptionModel / portList.size();
 		double averageConsumptionReal = accumulatedConsumptionReal / portList.size();
 		double averageDelay = accumulatedDelay / totalPacketsToComputeDelay;
@@ -318,11 +320,11 @@ public class NetworkSimulator {
 		// low-latency algorithm
 		finalResult += lowLatencyAlgorithm.getClass().getSimpleName() + (WITH_TABS ? "\t" : " ");
 		// sampling period in seconds
-		finalResult += df.format(period) + (WITH_TABS ? "\t\t" : " ");
+		finalResult += df.format(period/1e9) + (WITH_TABS ? "\t\t" : " ");
 		// range of bits used to identify the flows
 		finalResult += startBitDstIp + "-" + endBitDstIp + (WITH_TABS ? "\t" : " ");
 		// size of the buffer in milliseconds
-		finalResult += df.format(queueSize * 1e3) + (WITH_TABS ? "\t\t" : " ");
+		finalResult += df.format(queueSize / 1e6) + (WITH_TABS ? "\t\t" : " ");
 		// speed of the trace
 		finalResult += df.format(speed) + (WITH_TABS ? "\t" : " ");
 		// num ports of the bundle
@@ -347,10 +349,10 @@ public class NetworkSimulator {
 		finalResult += df.format((accRateError / ((double) (iteration - iterationsToDiscard))))
 				+ (WITH_TABS ? "\t\t\t" : " ");
 		// average delay of the packets
-		finalResult += df.format(averageDelay * 1e6) + (WITH_TABS ? "\t\t" : " ");
+		finalResult += df.format(averageDelay / 1e3) + (WITH_TABS ? "\t\t" : " ");
 		// average delay of the low-latency packets
 		if (totalPacketsToComputeDelayLowLatency > 0) {
-			finalResult += df.format(averageDelayLowLatency * 1e6);
+			finalResult += df.format(averageDelayLowLatency / 1e3);
 		}
 		finalResult += "\n";
 
@@ -393,8 +395,8 @@ public class NetworkSimulator {
 		}
 		if (totalPacketsToComputeDelayLowLatency > 0) {
 			// DEBUG
-			System.err.println("Average delay (us): " + df.format(averageDelay * 1e6));
-			System.err.println("Average delay of low-latency packets (us): " + df.format(averageDelayLowLatency * 1e6));
+			System.err.println("Average delay (us): " + df.format(averageDelay / 1e3));
+			System.err.println("Average delay of low-latency packets (us): " + df.format(averageDelayLowLatency / 1e3));
 		}
 	}
 
@@ -453,9 +455,9 @@ public class NetworkSimulator {
 		return currentFlowsMap.values();
 	}
 
-	public double getCurrentTime() {
+	public long getCurrentTime() {
 		// double currentTime = iteration * period;
-		double currentTime = lastArrivalTimestamp;
+		long currentTime = lastArrivalTimestamp;
 		return currentTime;
 	}
 
@@ -474,14 +476,14 @@ public class NetworkSimulator {
 			return 0;
 		}
 
-		double time;
+		long time; // In nanoseconds
 		String sip;
 		String dip;
 		int bytes;
 
 		try {
 			String[] splittedLine = line.split(" ");
-			time = Double.parseDouble(splittedLine[0]) / speed;
+			time = (long) (1e9 * Double.parseDouble(splittedLine[0]) / speed);
 			sip = splittedLine[1];
 			dip = splittedLine[2];
 			bytes = Integer.parseInt(splittedLine[3]);
@@ -552,19 +554,19 @@ public class NetworkSimulator {
 		this.finished = finished;
 	}
 
-	public double getDelay() {
+	public long getPeriod() {
 		return period;
 	}
 
-	public void setDelay(double delay) {
-		this.period = delay;
+	public void setPeriod(long period) {
+		this.period = period;
 	}
 
-	public double getFlowRuleTimeout() {
+	public long getFlowRuleTimeout() {
 		return flowRuleTimeout;
 	}
 
-	public void setFlowRuleTimeout(double flowRuleTimeout) {
+	public void setFlowRuleTimeout(long flowRuleTimeout) {
 		this.flowRuleTimeout = flowRuleTimeout;
 	}
 
@@ -576,11 +578,11 @@ public class NetworkSimulator {
 		this.printStream = printStream;
 	}
 
-	public double getQueueSize() {
+	public long getQueueSize() {
 		return queueSize;
 	}
 
-	public void setQueueSize(double queueSize) {
+	public void setQueueSize(long queueSize) {
 		this.queueSize = queueSize;
 	}
 

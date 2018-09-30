@@ -9,7 +9,7 @@ import auxiliar.Queue;
 import tfm.EnergyConsumptionUtils;
 
 public class PortStatistics {
-	private double time;
+	private long time;
 	private double portBandwidth;
 
 	private PortNumber portNumber;
@@ -22,7 +22,7 @@ public class PortStatistics {
 	private long bytesInterval;
 	private double lossPacketPercent;
 	private double energyConsumption; // In parts per unit
-	private double idleTime; // In seconds
+	private long idleTime; // In seconds
 	private double realEnergyConsumption; // In parts per unit
 	private List<Double> energyConsumptions;
 	private Queue queue;
@@ -30,8 +30,8 @@ public class PortStatistics {
 	// Experimental
 	private double remainingOccupation;
 
-	public PortStatistics(String executionFile, PortNumber portNumber, double time, double portBandwidth,
-			double queueSize) {
+	public PortStatistics(String executionFile, PortNumber portNumber, long time, double portBandwidth,
+			long queueSize) {
 		this.time = time;
 		this.portBandwidth = portBandwidth;
 		this.portNumber = portNumber;
@@ -64,7 +64,7 @@ public class PortStatistics {
 	public void addFlow() {
 		this.numFlowsInterval += 1;
 	}
-	
+
 	public void removeFlow() {
 		this.numFlowsInterval -= 1;
 	}
@@ -75,7 +75,7 @@ public class PortStatistics {
 	}
 
 	private void setOccupation(boolean isInterval) {
-		double portBytesAvailable = portBandwidth * time;
+		double portBytesAvailable = portBandwidth * (time / 1e9);
 		if (isInterval) {
 			occupation = (bytesInterval / portBytesAvailable) + remainingOccupation;
 			// Experimental: Uncomment this line to have a non zero remaining occupation
@@ -92,9 +92,9 @@ public class PortStatistics {
 
 	private void setRate(boolean isInterval) {
 		if (isInterval) {
-			rate = bytesInterval * 8 / (time * 1e6);
+			rate = bytesInterval * 8 / (time / 1e3);
 		} else {
-			rate = bytes * 8 / (time * 1e6);
+			rate = bytes * 8 / (time / 1e3);
 		}
 	}
 
@@ -170,7 +170,7 @@ public class PortStatistics {
 		}
 	}
 
-	public void setTime(double time) {
+	public void setTime(long time) {
 		this.time = time;
 	}
 
@@ -190,7 +190,7 @@ public class PortStatistics {
 		this.bytesInterval = bytesInterval;
 	}
 
-	public void finishInterval(boolean discardPreviousIntervals, double timestamp) {
+	public void finishInterval(boolean discardPreviousIntervals, long timestamp) {
 		energyConsumptions.add(getEnergyConsumption(true));
 		numPacketsInterval = 0;
 		bytesInterval = 0;
@@ -203,7 +203,7 @@ public class PortStatistics {
 	/*
 	 * IMPORTANT: This method must be called at the end of finishInterval
 	 */
-	private void discardPreviousIntervals(double timestamp) {
+	private void discardPreviousIntervals(long timestamp) {
 		numPackets = 0;
 		bytes = 0;
 		idleTime = 0;
@@ -218,27 +218,39 @@ public class PortStatistics {
 
 	public void setRealEnergyConsumption(boolean isInterval) {
 		if (isInterval) {
-			double idleFraction = (getIdleTimeFromQueue() - getIdleTime()) / time;
+			long idleTimeFromQueue = getIdleTimeFromQueue();
+			long idleTime = getIdleTime();
+			// System.out.println("idleTimeFromQueue=" + idleTimeFromQueue + " idleTime=" +
+			// idleTime + " time=" + time);
+			double idleFraction = (idleTimeFromQueue - idleTime) / (double) time;
 			this.realEnergyConsumption = idleFraction * 0.1 + (1 - idleFraction) * 1;
+			// Update idleTime variable for next intervals
+			setIdleTime(idleTimeFromQueue);
 		} else {
-			double idleFraction = getIdleTimeFromQueue() / time;
+			long idleTimeFromQueue = getIdleTimeFromQueue();
+			// System.out.println("idleTimeFromQueue=" + idleTimeFromQueue + " time=" +
+			// time);
+			double idleFraction = idleTimeFromQueue / (double) time;
 			this.realEnergyConsumption = idleFraction * 0.1 + (1 - idleFraction) * 1;
 		}
 	}
 
-	public double getIdleTimeFromQueue() {
+	public long getIdleTimeFromQueue() {
 		return queue.getIdleTime();
 	}
 
-	public double getIdleTime() {
+	public long getIdleTime() {
 		return idleTime;
 	}
 
-	public void setIdleTime(double idleTime) {
+	public void setIdleTime(long idleTime) {
 		this.idleTime = idleTime;
 	}
 
 	public String toStringInterval() {
+		// System.out.println(
+		// "Accumulated total delay: " + (queue.getAccumulatedDelay() +
+		// queue.getAccumulatedDelayLowLatency()));
 		boolean isInterval = true;
 		DecimalFormat df = new DecimalFormat("#.##");
 		String toReturn = "";

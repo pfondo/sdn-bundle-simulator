@@ -17,6 +17,7 @@ public class MainClass {
 	}
 
 	public static void singleExecution(String args[]) {
+		// Set seed to allow for reproducibility
 		Configuration conf = new Configuration(args);
 
 		// Instantiate the simulator and start the simulation

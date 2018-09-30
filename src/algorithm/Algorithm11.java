@@ -93,7 +93,7 @@ public class Algorithm11 extends BaseAlgorithm {
 				count++;
 			}
 
-			int selected = (int) (aggregation.size() * Math.random());
+			int selected = (int) (aggregation.size() * random.nextDouble());
 			portNumber = (PortNumber) aggregation.toArray()[selected];
 		}
 		return portNumber;

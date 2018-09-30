@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import java.util.TreeSet;
@@ -18,19 +19,23 @@ import tfm.NetworkSimulator;
 
 public abstract class BaseAlgorithm {
 
+	public final static long RANDOM_SEED = 0; // TODO: Convert to argument
+
 	public final static boolean DEBUG = false;
 
 	protected final Logger log = new Logger();
 
 	protected LowLatencyBaseAlgorithm lowLatencyAlgorithm;
 
+	protected final static Random random = new Random(RANDOM_SEED);
+
 	protected double portBandwidth = 1.25E9; // 1.25E9 = 1.25 GB/s = 10 Gb/s
 	protected double portBytesInterface;
 
 	protected Set<FlowEntry> previousFlowEntries;
 
-	protected double delay;
-	protected double flowRuleTimeout;
+	protected long delay;
+	protected long flowRuleTimeout;
 
 	protected double alphaEwma;
 
@@ -97,11 +102,11 @@ public abstract class BaseAlgorithm {
 	public void init(NetworkSimulator networkSimulator) {
 		this.networkSimulator = networkSimulator;
 		this.lowLatencyAlgorithm = networkSimulator.getLowLatencyAlgorithm();
-		this.delay = networkSimulator.getDelay();
-		this.flowRuleTimeout = networkSimulator.getDelay();
+		this.delay = networkSimulator.getPeriod();
+		this.flowRuleTimeout = networkSimulator.getFlowRuleTimeout();
 		this.alphaEwma = networkSimulator.getAlphaEwma();
 		setTopology(networkSimulator.getNumPorts());
-		portBytesInterface = portBandwidth * delay;
+		portBytesInterface = portBandwidth * (delay / 1e9);
 	}
 
 	public static BaseAlgorithm newInstance(Class<? extends BaseAlgorithm> algorithmType) {
@@ -133,9 +138,9 @@ public abstract class BaseAlgorithm {
 					}
 				}
 			}
-			if (aggregation.size() > 1) {
-				return aggregation;
-			}
+			// if (aggregation.size() > 1) {
+			return aggregation;
+			// }
 		}
 		return null;
 	}
@@ -170,6 +175,7 @@ public abstract class BaseAlgorithm {
 				// portsBytes.putIfAbsent(deviceId, new HashMap<>());
 				for (DeviceId neighbor : getNeighbors(deviceId)) {
 					Set<PortNumber> linkPorts = getLinkPorts(deviceId, neighbor);
+
 					if (linkPorts != null) {
 						// i.e. there is an aggregate link between this two
 						// switches
@@ -232,6 +238,7 @@ public abstract class BaseAlgorithm {
 						for (PortNumber port : linkPorts) {
 							numFlowsPerPort.put(port, (long) 0);
 						}
+
 						for (FlowEntry fe : filteredFlowMap.keySet()) {
 							PortNumber oldOutputPort = fe.getOutputPort();
 							numFlowsPerPort.put(oldOutputPort, numFlowsPerPort.get(oldOutputPort) + 1);
@@ -255,8 +262,8 @@ public abstract class BaseAlgorithm {
 								numFlowsPerPort.put(oldOutputPort, numFlowsPerPort.get(oldOutputPort) + 1);
 
 								if (lowLatencyFlowAllocation.containsKey(fe)) {
-									networkSimulator.getPrintStream().println("Low-latency flow " + fe.getId()
-											+ ": " + lowLatencyFlowAllocation.get(fe));
+									networkSimulator.getPrintStream().println(
+											"Low-latency flow " + fe.getId() + ": " + lowLatencyFlowAllocation.get(fe));
 									if (!fe.getOutputPort().equals(lowLatencyFlowAllocation.get(fe))) {
 										// The FlowEntry has been scheduled to a new port
 										numFlowMods += 1;
@@ -306,7 +313,11 @@ public abstract class BaseAlgorithm {
 			for (PortNumber pn : getLinkPorts(src, dst)) {
 				aggregation.add(pn);
 			}
-			int selected = (int) (aggregation.size() * Math.random());
+
+			int selected = (int) (aggregation.size() * random.nextDouble());
+
+			// DEBUG
+			selected = 0;
 			portNumber = (PortNumber) aggregation.toArray()[selected];
 		}
 		return portNumber;

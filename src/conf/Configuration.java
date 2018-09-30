@@ -39,11 +39,11 @@ public class Configuration {
 	private String inputFile;
 	private Class<? extends BaseAlgorithm> algorithm = new Algorithm3().getClass();
 	private int numPorts;
-	private double period;
-	private double flowRuleTimeout;
+	private long period; // In nanoseconds, yet the argument is in seconds
+	private long flowRuleTimeout; // In nanoseconds, yet the argument is in seconds
 	private int startBitDstIp;
 	private int endBitDstIp;
-	private double queueSize;
+	private long queueSize; // In nanoseconds, yet the argument is in seconds
 	private double speed;
 	private double alphaEwma;
 	// private boolean priorityQueues;
@@ -237,15 +237,15 @@ public class Configuration {
 
 		this.numPorts = Integer.parseInt(cmd.getOptionValue("numPorts", DEFAULT_NUM_PORTS));
 
-		this.period = Double.parseDouble(cmd.getOptionValue("period", DEFAULT_SAMPLING_PERIOD));
+		this.period = (long) (1e9 * Double.parseDouble(cmd.getOptionValue("period", DEFAULT_SAMPLING_PERIOD)));
 
-		this.flowRuleTimeout = Double.parseDouble(cmd.getOptionValue("flowRuleTimeout", DEFAULT_FR_TIMEOUT));
+		this.flowRuleTimeout = (long) (1e9 * Double.parseDouble(cmd.getOptionValue("flowRuleTimeout", DEFAULT_FR_TIMEOUT)));
 
 		this.startBitDstIp = Integer.parseInt(cmd.getOptionValue("startBitDstIp", DEFAULT_START_BIT_DST_IP));
 
 		this.endBitDstIp = Integer.parseInt(cmd.getOptionValue("endBitDstIp", DEFAULT_END_BIT_DST_IP));
 
-		this.queueSize = Double.parseDouble(cmd.getOptionValue("queueSize", DEFAULT_QUEUE_SIZE));
+		this.queueSize = (long) (1e9 * Double.parseDouble(cmd.getOptionValue("queueSize", DEFAULT_QUEUE_SIZE))); // Converted to nanoseconds
 
 		this.speed = Double.parseDouble(cmd.getOptionValue("speed", DEFAULT_SPEED));
 
@@ -299,19 +299,19 @@ public class Configuration {
 		this.algorithm = algorithm;
 	}
 
-	public double getPeriod() {
+	public long getPeriod() {
 		return period;
 	}
 
-	public void setPeriod(double period) {
+	public void setPeriod(long period) {
 		this.period = period;
 	}
 
-	public double getFlowRuleTimeout() {
+	public long getFlowRuleTimeout() {
 		return flowRuleTimeout;
 	}
 
-	public void setFlowRuleTimeout(double flowRuleTimeout) {
+	public void setFlowRuleTimeout(long flowRuleTimeout) {
 		this.flowRuleTimeout = flowRuleTimeout;
 	}
 
@@ -331,11 +331,11 @@ public class Configuration {
 		this.endBitDstIp = endBitDstIp;
 	}
 
-	public double getQueueSize() {
+	public long getQueueSize() {
 		return queueSize;
 	}
 
-	public void setQueueSize(double queueSize) {
+	public void setQueueSize(long queueSize) {
 		this.queueSize = queueSize;
 	}
 

@@ -37,7 +37,7 @@ public class FlowBytesHistory {
 	/**
 	 * 
 	 * @param flowBytesRealCurrent
-	 * @param samplingPeriod
+	 * @param samplingPeriod in nanoseconds
 	 * @return Average per flow error in the estimation of the rate in the current
 	 *         interval [Mbps]
 	 */
@@ -46,8 +46,8 @@ public class FlowBytesHistory {
 		double error = 0;
 		error = computeBytesEstimationError(deviceId, fe, bytesRealCurrent);
 		error /= samplingPeriod;
-		// Convert Bps to Mbps
-		error = error * 8 / 1e6;
+		// Convert GBps to Mbps
+		error = error * 8 * 1e3;
 		return error;
 	}
 

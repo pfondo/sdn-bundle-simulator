@@ -1,19 +1,26 @@
 package auxiliar;
 
 public class Packet {
-	// Time needed to transmit this packet in seconds
-	private final double transmissionTime;
-	private final double queueArrivalTimestamp;
+	// Time needed to transmit this packet in nanoseconds
+	private final long transmissionTime;
+	private final long queueArrivalTimestamp;
 	private final long bytes;
 	private final boolean isLowLatency;
 
-	private double initTransmissionTimestamp;
+	private long initTransmissionTimestamp;
 
-	public Packet(final long bytes, final double bandwidthInterface, final double queueArrivalTimestamp,
+	/**
+	 * 
+	 * @param bytes
+	 * @param bandwidthInterface In bytes per second
+	 * @param queueArrivalTimestamp
+	 * @param isLowLatency
+	 */
+	public Packet(final long bytes, final double bandwidthInterface, final long queueArrivalTimestamp,
 			final boolean isLowLatency) {
 		this.bytes = bytes;
 		// Experimental: Nanosecond precision
-		transmissionTime = ((double) Math.round((bytes / bandwidthInterface) * 1e9) / 1e9);
+		transmissionTime = (long) Math.round((bytes / bandwidthInterface) * 1e9);
 		this.queueArrivalTimestamp = queueArrivalTimestamp;
 		this.isLowLatency = isLowLatency;
 	}
@@ -24,24 +31,25 @@ public class Packet {
 	 * @param timeAvailable
 	 * @return
 	 */
-	public boolean isExpired(double timeAvailable) {
+	public boolean isExpired(long timeAvailable) {
 		return transmissionTime <= timeAvailable;
 	}
-	
+
 	/**
 	 * [UNUSED]
+	 * 
 	 * @param currentTimestamp
 	 * @return
 	 */
-	public boolean canInitTransmission(double currentTimestamp) {
+	public boolean canInitTransmission(long currentTimestamp) {
 		return currentTimestamp >= initTransmissionTimestamp;
 	}
 
-	public double getTransmissionTime() {
+	public long getTransmissionTime() {
 		return transmissionTime;
 	}
 
-	public double getQueueArrivalTimestamp() {
+	public long getQueueArrivalTimestamp() {
 		return queueArrivalTimestamp;
 	}
 
@@ -53,11 +61,11 @@ public class Packet {
 		return isLowLatency;
 	}
 
-	public double getInitTransmissionTimestamp() {
+	public long getInitTransmissionTimestamp() {
 		return initTransmissionTimestamp;
 	}
 
-	public void setInitTransmissionTimestamp(double initTransmissionTimestamp) {
+	public void setInitTransmissionTimestamp(long initTransmissionTimestamp) {
 		this.initTransmissionTimestamp = initTransmissionTimestamp;
 	}
 }
