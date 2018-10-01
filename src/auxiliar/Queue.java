@@ -24,7 +24,7 @@ public class Queue {
 	}
 
 	public static final boolean DEBUG = false;
-	private static final boolean PRINT_PACKETS = true; // false
+	private static final boolean PRINT_PACKETS = true;
 
 	private long queueSize; // delay in nanoseconds
 
@@ -346,7 +346,7 @@ public class Queue {
 					}
 
 				} else {
-					currentIdleTime = (portWakeUpTimestamp - referenceTimestamp);
+					currentIdleTime = portWakeUpTimestamp - referenceTimestamp;
 				}
 				if (DEBUG) {
 					System.out.println("sleep_time_compensation=" + sleep_time_compensation);
@@ -356,6 +356,9 @@ public class Queue {
 				if (currentIdleTime > 0) {
 					if (!isEmpty() && list.get(0).getQueueArrivalTimestamp() < priorityList.get(0)
 							.getQueueArrivalTimestamp()) {
+						portWakeUpTimestamp = list.get(0).getQueueArrivalTimestamp();
+						// Evaluate if when the port is awake, the high priority packet is already in
+						// the queue
 						if (list.get(0).getQueueArrivalTimestamp()
 								+ ((long) (1e9 * EnergyConsumptionUtils.T_W)) < priorityList.get(0)
 										.getQueueArrivalTimestamp()) {
@@ -363,11 +366,16 @@ public class Queue {
 							// packet
 							break;
 						}
-						portWakeUpTimestamp = list.get(0).getQueueArrivalTimestamp();
-						long timeSinceLastTransmissionEnded = portWakeUpTimestamp - lastTransmittedTimestamp;
-						currentIdleTime = timeSinceLastTransmissionEnded - ((long) (1e9 * EnergyConsumptionUtils.T_S));
-						if (currentIdleTime <= 0) {
-							sleep_time_compensation = -currentIdleTime; // Note that this will be positive
+						if (lastTransmittedTimestamp > 0) {
+
+							long timeSinceLastTransmissionEnded = portWakeUpTimestamp - lastTransmittedTimestamp;
+							currentIdleTime = timeSinceLastTransmissionEnded
+									- ((long) (1e9 * EnergyConsumptionUtils.T_S));
+							if (currentIdleTime <= 0) {
+								sleep_time_compensation = -currentIdleTime; // Note that this will be positive
+							}
+						} else {
+							currentIdleTime = portWakeUpTimestamp - referenceTimestamp;
 						}
 					}
 				}
@@ -384,6 +392,21 @@ public class Queue {
 
 				// Update idleTime:
 				if (currentIdleTime > 0) {
+					// if (portName.equals("port4")) {
+					// System.out.println("***");
+					// System.out.println("portName=" + portName);
+					// System.out.println("currentTimestamp=" + currentTimestamp);
+					// System.out.println("lastTransmittedTimestampTmp=" +
+					// lastTransmittedTimestampTmp);
+					// System.out.println("lastTransmittedTimestamp=" + lastTransmittedTimestamp);
+					// System.out.println("priorityListTs=" +
+					// currentPacket.getQueueArrivalTimestamp());
+					// System.out.println("txTime: " + currentPacket.getTransmissionTime());
+					// if (!isEmpty()) {
+					// System.out.println("listTs=" + list.get(0).getQueueArrivalTimestamp());
+					// }
+					// System.out.println("currentIdleTime= " + currentIdleTime);
+					// }
 					setIdleTime(getIdleTime() + currentIdleTime);
 				}
 
@@ -435,7 +458,7 @@ public class Queue {
 							- lastTransmittedTimestamp;
 					currentIdleTime = timeSinceLastTransmissionEnded - ((long) (1e9 * EnergyConsumptionUtils.T_S));
 					if (currentIdleTime > 0) {
-						// setIdleTime(getIdleTime() + currentIdleTime);
+						// Only update when the packet is actually transmitted
 					} else {
 						sleep_time_compensation = -currentIdleTime;
 					}
@@ -449,21 +472,9 @@ public class Queue {
 			}
 			// From this point on, lastTransmittedTimestampTmp contains the timestamp when
 			// the first packet in the queue will be transmitted
-			if (!isEmptyPriority() && priorityList.get(0).getQueueArrivalTimestamp() <= lastTransmittedTimestampTmp) {
+			if (!isEmptyPriority() && priorityList.get(0).getQueueArrivalTimestamp() <= lastTransmittedTimestamp) {
 				// Then a high-priority packet will be transmitted before this low-priority
 				// packet
-				// System.out.println("***");
-				// System.out.println("Letting high priority packet first");
-				// System.out.println("list.size()=" + list.size() + " with currentIdleTime=" +
-				// currentIdleTime);
-				// System.out.println("currentTimestamp=" + currentTimestamp);
-				// System.out.println("lastTransmittedTimestampTmp=" +
-				// lastTransmittedTimestampTmp);
-				// System.out.println("lastTransmittedTimestamp=" + lastTransmittedTimestamp);
-				// System.out.println("priorityListTs=" +
-				// priorityList.get(0).getQueueArrivalTimestamp());
-				// System.out.println("listTs=" + list.get(0).getQueueArrivalTimestamp());
-
 				break;
 			}
 			if (currentTimestamp - lastTransmittedTimestampTmp > 0) { // TODO: Decidir si >= ó >
