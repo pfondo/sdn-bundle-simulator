@@ -24,7 +24,7 @@ public class Queue {
 	}
 
 	public static final boolean DEBUG = false;
-	private static final boolean PRINT_PACKETS = true;
+	private static final boolean PRINT_PACKETS = false;
 
 	private long queueSize; // delay in nanoseconds
 
