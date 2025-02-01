@@ -1,7 +1,6 @@
 # sdn-bundle-simulator
 
-[![Build Status](https://travis-ci.org/pfondo/sdn-bundle-simulator.svg?branch=master)](https://travis-ci.org/pfondo/sdn-bundle-simulator)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14783607.svg)](https://doi.org/10.5281/zenodo.14783607)
 
 ## Description
 
